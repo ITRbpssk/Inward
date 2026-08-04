@@ -1,0 +1,156 @@
+const { pool } = require("../config/db");
+
+class DashboardRepository {
+    /**
+     * Get basic count stats for a survey.
+     */
+    async getSummaryMetrics(surveyId) {
+        // Total active departments
+        const [deptCount] = await pool.query("SELECT COUNT(*) AS count FROM departments WHERE status = 'active'");
+        
+        // Total active department mappings
+        const [mappingCount] = await pool.query("SELECT COUNT(*) AS count FROM department_mappings WHERE status = 'active'");
+
+        // Feedbacks stats for this survey
+        const feedbackStatsQuery = `
+            SELECT 
+                COUNT(*) AS total_feedbacks,
+                SUM(CASE WHEN status = 'submitted' THEN 1 ELSE 0 END) AS submitted_feedbacks,
+                SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) AS draft_feedbacks
+            FROM feedbacks
+            WHERE survey_id = ?
+        `;
+        const [feedbackStats] = await pool.query(feedbackStatsQuery, [surveyId]);
+
+        // Overall average score of all submitted feedbacks in this survey
+        const avgScoreQuery = `
+            SELECT AVG(fb_score.score) AS overall_avg_score
+            FROM (
+                SELECT f.feedback_id, SUM(fd.rating * p.weightage) / SUM(p.weightage) AS score
+                FROM feedbacks f
+                JOIN feedback_details fd ON f.feedback_id = fd.feedback_id
+                JOIN parameters p ON fd.parameter_id = p.parameter_id
+                WHERE f.survey_id = ? AND f.status = 'submitted'
+                GROUP BY f.feedback_id
+            ) fb_score
+        `;
+        const [avgScore] = await pool.query(avgScoreQuery, [surveyId]);
+
+        return {
+            total_departments: deptCount[0].count,
+            expected_feedbacks: mappingCount[0].count,
+            total_feedbacks: feedbackStats[0].total_feedbacks || 0,
+            submitted_feedbacks: feedbackStats[0].submitted_feedbacks || 0,
+            draft_feedbacks: feedbackStats[0].draft_feedbacks || 0,
+            overall_average_score: avgScore[0].overall_avg_score ? parseFloat(avgScore[0].overall_avg_score.toFixed(2)) : 0
+        };
+    }
+
+    /**
+     * Get average ratings received (To Dept) and given (From Dept) for all active departments.
+     */
+    async getDepartmentWiseScores(surveyId) {
+        const query = `
+            SELECT 
+                d.department_id,
+                d.department_code,
+                d.department_name,
+                COALESCE(rec.avg_received, 0) AS average_score_received,
+                COALESCE(giv.avg_given, 0) AS average_score_given
+            FROM departments d
+            
+            -- Left join for received scores
+            LEFT JOIN (
+                SELECT f.to_department_id, AVG(fb_score.score) AS avg_received
+                FROM feedbacks f
+                JOIN (
+                    SELECT f.feedback_id, SUM(fd.rating * p.weightage) / SUM(p.weightage) AS score
+                    FROM feedbacks f
+                    JOIN feedback_details fd ON f.feedback_id = fd.feedback_id
+                    JOIN parameters p ON fd.parameter_id = p.parameter_id
+                    WHERE f.survey_id = ? AND f.status = 'submitted'
+                    GROUP BY f.feedback_id
+                ) fb_score ON f.feedback_id = fb_score.feedback_id
+                GROUP BY f.to_department_id
+            ) rec ON d.department_id = rec.to_department_id
+            
+            -- Left join for given scores
+            LEFT JOIN (
+                SELECT f.from_department_id, AVG(fb_score.score) AS avg_given
+                FROM feedbacks f
+                JOIN (
+                    SELECT f.feedback_id, SUM(fd.rating * p.weightage) / SUM(p.weightage) AS score
+                    FROM feedbacks f
+                    JOIN feedback_details fd ON f.feedback_id = fd.feedback_id
+                    JOIN parameters p ON fd.parameter_id = p.parameter_id
+                    WHERE f.survey_id = ? AND f.status = 'submitted'
+                    GROUP BY f.feedback_id
+                ) fb_score ON f.feedback_id = fb_score.feedback_id
+                GROUP BY f.from_department_id
+            ) giv ON d.department_id = giv.from_department_id
+            
+            WHERE d.status = 'active'
+            ORDER BY d.department_name ASC
+        `;
+        const [rows] = await pool.query(query, [surveyId, surveyId]);
+        return rows.map(r => ({
+            ...r,
+            average_score_received: parseFloat(parseFloat(r.average_score_received).toFixed(2)),
+            average_score_given: parseFloat(parseFloat(r.average_score_given).toFixed(2))
+        }));
+    }
+
+    /**
+     * Get detailed feedback ratings received by a specific department, broken down by parameter.
+     */
+    async getDepartmentParameterScores(surveyId, departmentId) {
+        const query = `
+            SELECT 
+                p.parameter_id,
+                p.parameter_name,
+                p.description,
+                p.weightage,
+                COALESCE(AVG(fd.rating), 0) AS average_rating
+            FROM parameters p
+            LEFT JOIN feedback_details fd ON p.parameter_id = fd.parameter_id
+            LEFT JOIN feedbacks f ON fd.feedback_id = f.feedback_id AND f.survey_id = ? AND f.to_department_id = ? AND f.status = 'submitted'
+            WHERE p.status = 'active'
+            GROUP BY p.parameter_id, p.parameter_name, p.description, p.weightage, p.display_order
+            ORDER BY p.display_order ASC
+        `;
+        const [rows] = await pool.query(query, [surveyId, departmentId]);
+        return rows.map(r => ({
+            ...r,
+            average_rating: parseFloat(parseFloat(r.average_rating).toFixed(2))
+        }));
+    }
+
+    /**
+     * Get a cross-tabulation mapping matrix between departments for the survey.
+     * E.g., From HR to IT, Finance to IT, etc.
+     */
+    async getFeedbackMatrix(surveyId) {
+        const query = `
+            SELECT 
+                f.from_department_id,
+                fd_from.department_code AS from_department_code,
+                f.to_department_id,
+                fd_to.department_code AS to_department_code,
+                SUM(fd.rating * p.weightage) / SUM(p.weightage) AS score
+            FROM feedbacks f
+            JOIN feedback_details fd ON f.feedback_id = fd.feedback_id
+            JOIN parameters p ON fd.parameter_id = p.parameter_id
+            JOIN departments fd_from ON f.from_department_id = fd_from.department_id
+            JOIN departments fd_to ON f.to_department_id = fd_to.department_id
+            WHERE f.survey_id = ? AND f.status = 'submitted'
+            GROUP BY f.feedback_id, f.from_department_id, f.to_department_id, fd_from.department_code, fd_to.department_code
+        `;
+        const [rows] = await pool.query(query, [surveyId]);
+        return rows.map(r => ({
+            ...r,
+            score: parseFloat(parseFloat(r.score).toFixed(2))
+        }));
+    }
+}
+
+module.exports = new DashboardRepository();
