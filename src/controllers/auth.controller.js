@@ -3,8 +3,9 @@ const ApiResponse = require("../utils/ApiResponse");
 
 const login = async (req, res, next) => {
     try {
-        const { email, password } = req.body;
-        const result = await authService.login(email, password);
+        const { employeeId, password } = req.body;
+
+        const result = await authService.login(employeeId, password);
         res.status(200).json(new ApiResponse(200, result, "Logged in successfully"));
     } catch (error) {
         next(error);

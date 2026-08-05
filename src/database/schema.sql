@@ -33,7 +33,8 @@ CREATE TABLE departments (
 CREATE TABLE users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     role_id INT NOT NULL,
-    department_id INT NULL, -- Can be NULL for system admins
+    department_id INT NULL,
+    employee_id VARCHAR(20) UNIQUE NOT NULL,
     full_name VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     mobile VARCHAR(20) NULL,

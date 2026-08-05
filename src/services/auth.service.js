@@ -4,14 +4,14 @@ const { generateToken } = require("../utils/jwt");
 const ApiError = require("../utils/ApiError");
 
 class AuthService {
-    async login(email, password) {
-        if (!email || !password) {
-            throw new ApiError(400, "Email and password are required");
+   async login(employeeId, password) {
+        if (!employeeId || !password) {
+            throw new ApiError(400, "Employee ID and password are required");
         }
 
-        const user = await userRepository.findByEmail(email);
+        const user = await userRepository.findByEmployeeId(employeeId);
         if (!user) {
-            throw new ApiError(401, "Invalid email or password");
+            throw new ApiError(401, "Invalid employee ID or password");
         }
 
         if (user.status !== "active") {
@@ -20,13 +20,13 @@ class AuthService {
 
         const isPasswordMatch = await comparePassword(password, user.password);
         if (!isPasswordMatch) {
-            throw new ApiError(401, "Invalid email or password");
+            throw new ApiError(401, "Invalid employee ID or password");
         }
 
         // Generate token payload
         const payload = {
             user_id: user.user_id,
-            email: user.email,
+            employeeId: user.employee_id,
             role_id: user.role_id,
             role_name: user.role_name,
             department_id: user.department_id
@@ -41,7 +41,7 @@ class AuthService {
             user: {
                 user_id: user.user_id,
                 full_name: user.full_name,
-                email: user.email,
+                employeeId: user.employee_id,
                 role_name: user.role_name,
                 department_id: user.department_id,
                 department_code: user.department_code,
