@@ -18,10 +18,10 @@ class UserService {
     }
 
     async createUser(userData) {
-        const { role_id, department_id, full_name, email, mobile, password, status } = userData;
+        const { role_id, department_id, employee_id, full_name, email, mobile, password, status } = userData;
 
-        if (!role_id || !full_name || !email || !password) {
-            throw new ApiError(400, "Required fields: role_id, full_name, email, password");
+        if (!role_id || !full_name || !employee_id || !email || !password) {
+            throw new ApiError(400, "Required fields: role_id, full_name, employee_id, email, password");
         }
 
         // Check if role exists
@@ -38,6 +38,12 @@ class UserService {
             }
         }
 
+        const existingEmployee = await userRepository.findByEmployeeId(employee_id);
+
+        if (existingEmployee) {
+            throw new ApiError(400, "Employee ID is already registered");
+        }
+
         // Check if email already taken
         const existingUser = await userRepository.findByEmail(email);
         if (existingUser) {
@@ -51,6 +57,7 @@ class UserService {
             const newUserId = await userRepository.create({
                 role_id,
                 department_id,
+                employee_id,
                 full_name,
                 email,
                 mobile,
@@ -67,15 +74,38 @@ class UserService {
     }
 
     async updateUser(userId, userData) {
-        const { role_id, department_id, full_name, email, mobile, status } = userData;
+        const { role_id, department_id, employee_id, full_name, email, mobile, status } = userData;
 
-        if (!role_id || !full_name || !email) {
-            throw new ApiError(400, "Required fields: role_id, full_name, email");
+        if (!role_id || !full_name || !employee_id || !email) {
+            throw new ApiError(400, "Required fields: role_id, full_name, employee_id, email");
         }
 
         const user = await userRepository.findById(userId);
+        // Check if role exists
+        const role = await roleRepository.findById(role_id);
+        if (!role) {
+            throw new ApiError(400, "Invalid role_id");
+        }
+
+        // Check if department exists
+        if (department_id) {
+            const dept = await departmentRepository.findById(department_id);
+            if (!dept) {
+                throw new ApiError(400, "Invalid department_id");
+            }
+        }
         if (!user) {
             throw new ApiError(404, "User not found");
+        }
+
+        // Check if employee ID is already taken by someone else
+        const existingEmployee = await userRepository.findByEmployeeId(employee_id);
+
+        if (
+            existingEmployee &&
+            existingEmployee.user_id !== parseInt(userId)
+        ) {
+            throw new ApiError(400, "Employee ID is already in use");
         }
 
         // Check if email is already taken by someone else
@@ -88,6 +118,7 @@ class UserService {
             await userRepository.update(userId, {
                 role_id,
                 department_id,
+                employee_id,
                 full_name,
                 email,
                 mobile,
