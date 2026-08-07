@@ -1,28 +1,35 @@
 const ApiError = require("../utils/ApiError");
 
 const errorMiddleware = (err, req, res, next) => {
-    let { statusCode, message, errors } = err;
 
-    if (!(err instanceof ApiError)) {
+    let statusCode = 500;
+    let message = "Internal Server Error";
+    let errors = [];
+
+    if (err instanceof ApiError) {
+
         statusCode = err.statusCode;
-        message = err.message ;
-        errors = [];
+        message = err.message;
+        errors = err.errors || [];
+
+    } else {
+
+        console.error(err);
+
+        message = err.message || "Internal Server Error";
+
     }
 
-    const response = {
+    res.status(statusCode).json({
         success: false,
         statusCode,
         message,
         errors,
-        stack: process.env.NODE_ENV === "development" ? err.stack : undefined
-    };
+        stack: process.env.NODE_ENV === "development"
+            ? err.stack
+            : undefined
+    });
 
-    // Log the error for internal diagnostics (avoiding winston for simplicity, console is fine)
-    if (statusCode === 500) {
-        console.error(" Internal Server Error:", err);
-    }
-
-    res.status(statusCode).json(response);
 };
 
 module.exports = errorMiddleware;

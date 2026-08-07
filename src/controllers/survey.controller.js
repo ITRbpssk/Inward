@@ -38,14 +38,30 @@ const createSurvey = async (req, res, next) => {
 };
 
 const updateSurvey = async (req, res, next) => {
-    try {
-        const survey = await surveyService.updateSurvey(req.params.id, req.body);
-        res.status(200).json(new ApiResponse(200, survey, "Survey updated successfully"));
-    } catch (error) {
-        next(error);
-    }
-};
 
+    try {
+
+        console.log("Survey ID:", req.params.id);
+        console.log("Request Body:", req.body);
+
+        const survey = await surveyService.updateSurvey(
+            req.params.id,
+            req.body
+        );
+
+        res.status(200).json(
+            new ApiResponse(200, survey, "Survey updated successfully")
+        );
+
+    } catch (error) {
+
+        console.error("Update Survey Error:", error);
+
+        next(error);
+
+    }
+
+};
 const deleteSurvey = async (req, res, next) => {
     try {
         await surveyService.deleteSurvey(req.params.id);
