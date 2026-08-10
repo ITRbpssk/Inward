@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+console.log("✅ Routes index loaded");
 
 const authRoutes = require("./auth.routes");
 const userRoutes = require("./user.routes");
@@ -10,6 +11,7 @@ const parameterRoutes = require("./parameter.routes");
 const feedbackRoutes = require("./feedback.routes");
 const dashboardRoutes = require("./dashboard.routes");
 const reportRoutes = require("./report.routes");
+const surveyDepartmentRoutes = require("./surveyDepartment.routes");
 
 // Route mappings
 router.use("/auth", authRoutes);
@@ -21,5 +23,6 @@ router.use("/parameters", parameterRoutes);
 router.use("/feedbacks", feedbackRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/reports", reportRoutes);
+router.use("/survey-departments", surveyDepartmentRoutes);
 
 module.exports = router;
