@@ -13,6 +13,27 @@ class UserRepository {
         return rows[0] || null;
     }
 
+    async findByEmail(email) {
+
+        const query = `
+        SELECT
+            u.*,
+            r.role_name,
+            d.department_name,
+            d.department_code
+        FROM users u
+        JOIN roles r
+            ON u.role_id = r.role_id
+        LEFT JOIN departments d
+            ON u.department_id = d.department_id
+        WHERE u.email = ?
+    `;
+
+        const [rows] = await pool.query(query, [email]);
+
+        return rows[0] || null;
+    }
+
     async findById(userId) {
         const query = `
             SELECT u.*, r.role_name, d.department_name, d.department_code 
@@ -83,7 +104,7 @@ class UserRepository {
     }
 
     async update(userId, userData) {
-        const { role_id, department_id,employee_id, full_name, email, mobile, status } = userData;
+        const { role_id, department_id, employee_id, full_name, email, mobile, status } = userData;
         const query = `
             UPDATE users 
             SET role_id = ?, department_id = ?, employee_id = ?, full_name = ?, email = ?, mobile = ?, status = ?

@@ -5,46 +5,163 @@ class DashboardRepository {
      * Get basic count stats for a survey.
      */
     async getSummaryMetrics(surveyId) {
-        // Total active departments
-        const [deptCount] = await pool.query("SELECT COUNT(*) AS count FROM departments WHERE status = 'active'");
-        
-        // Total active department mappings
-        const [mappingCount] = await pool.query("SELECT COUNT(*) AS count FROM department_mappings WHERE status = 'active'");
 
-        // Feedbacks stats for this survey
-        const feedbackStatsQuery = `
-            SELECT 
-                COUNT(*) AS total_feedbacks,
-                SUM(CASE WHEN status = 'submitted' THEN 1 ELSE 0 END) AS submitted_feedbacks,
-                SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) AS draft_feedbacks
-            FROM feedbacks
-            WHERE survey_id = ?
-        `;
-        const [feedbackStats] = await pool.query(feedbackStatsQuery, [surveyId]);
+    // =====================================================
+    // TOTAL ACTIVE DEPARTMENTS
+    // =====================================================
 
-        // Overall average score of all submitted feedbacks in this survey
-        const avgScoreQuery = `
-            SELECT AVG(fb_score.score) AS overall_avg_score
-            FROM (
-                SELECT f.feedback_id, SUM(fd.rating * p.weightage) / SUM(p.weightage) AS score
-                FROM feedbacks f
-                JOIN feedback_details fd ON f.feedback_id = fd.feedback_id
-                JOIN parameters p ON fd.parameter_id = p.parameter_id
-                WHERE f.survey_id = ? AND f.status = 'submitted'
-                GROUP BY f.feedback_id
-            ) fb_score
-        `;
-        const [avgScore] = await pool.query(avgScoreQuery, [surveyId]);
+    const [deptCount] = await pool.query(`
+        SELECT COUNT(*) AS count
+        FROM departments
+        WHERE status = 'active'
+    `);
 
-        return {
-            total_departments: deptCount[0].count,
-            expected_feedbacks: mappingCount[0].count,
-            total_feedbacks: feedbackStats[0].total_feedbacks || 0,
-            submitted_feedbacks: feedbackStats[0].submitted_feedbacks || 0,
-            draft_feedbacks: feedbackStats[0].draft_feedbacks || 0,
-            overall_average_score: avgScore[0].overall_avg_score ? parseFloat(avgScore[0].overall_avg_score.toFixed(2)) : 0
-        };
-    }
+
+    // =====================================================
+    // TOTAL ACTIVE DEPARTMENT MAPPINGS
+    // =====================================================
+
+    const [mappingCount] = await pool.query(`
+        SELECT COUNT(*) AS count
+        FROM department_mappings
+        WHERE status = 'active'
+    `);
+
+
+    // =====================================================
+    // FEEDBACK STATISTICS
+    // =====================================================
+
+    const feedbackStatsQuery = `
+        SELECT
+            COUNT(*) AS total_feedbacks,
+
+            SUM(
+                CASE
+                    WHEN status = 'submitted'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS submitted_feedbacks,
+
+            SUM(
+                CASE
+                    WHEN status = 'draft'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS draft_feedbacks
+
+        FROM feedbacks
+
+        WHERE survey_id = ?
+    `;
+
+
+    const [feedbackStats] =
+        await pool.query(
+            feedbackStatsQuery,
+            [surveyId]
+        );
+
+
+    // =====================================================
+    // OVERALL AVERAGE SCORE
+    // =====================================================
+
+    const avgScoreQuery = `
+        SELECT
+            AVG(fb_score.score) AS overall_avg_score
+
+        FROM (
+
+            SELECT
+                f.feedback_id,
+
+                SUM(
+                    fd.rating * p.weightage
+                )
+                /
+                NULLIF(
+                    SUM(p.weightage),
+                    0
+                ) AS score
+
+            FROM feedbacks f
+
+            JOIN feedback_details fd
+                ON f.feedback_id = fd.feedback_id
+
+            JOIN parameters p
+                ON fd.parameter_id = p.parameter_id
+
+            WHERE
+                f.survey_id = ?
+                AND f.status = 'submitted'
+
+            GROUP BY
+                f.feedback_id
+
+        ) fb_score
+    `;
+
+
+    const [avgScore] =
+        await pool.query(
+            avgScoreQuery,
+            [surveyId]
+        );
+
+
+    // =====================================================
+    // SAFE NUMBER CONVERSION
+    // =====================================================
+
+    const overallAverageScore =
+        Number(
+            avgScore?.[0]?.overall_avg_score ?? 0
+        );
+
+
+    // =====================================================
+    // FINAL RESPONSE
+    // =====================================================
+
+    return {
+
+        total_departments:
+            Number(
+                deptCount?.[0]?.count ?? 0
+            ),
+
+        expected_feedbacks:
+            Number(
+                mappingCount?.[0]?.count ?? 0
+            ),
+
+        total_feedbacks:
+            Number(
+                feedbackStats?.[0]?.total_feedbacks ?? 0
+            ),
+
+        submitted_feedbacks:
+            Number(
+                feedbackStats?.[0]?.submitted_feedbacks ?? 0
+            ),
+
+        draft_feedbacks:
+            Number(
+                feedbackStats?.[0]?.draft_feedbacks ?? 0
+            ),
+
+        overall_average_score:
+            Number(
+                overallAverageScore.toFixed(2)
+            )
+
+    };
+
+}
 
     /**
      * Get average ratings received (To Dept) and given (From Dept) for all active departments.
