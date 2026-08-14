@@ -13,6 +13,8 @@ const dashboardRoutes = require("./dashboard.routes");
 const reportRoutes = require("./report.routes");
 const surveyDepartmentRoutes = require("./surveyDepartment.routes");
 const roleRoutes = require("./role.routes");
+const profileRoutes = require("./profile.routes");
+
 
 // Route mappings
 router.use("/auth", authRoutes);
@@ -26,5 +28,6 @@ router.use("/dashboard", dashboardRoutes);
 router.use("/reports", reportRoutes);
 router.use("/survey-departments", surveyDepartmentRoutes);
 router.use("/roles", roleRoutes);
+router.use("/profile", profileRoutes);
 
 module.exports = router;

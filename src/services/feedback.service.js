@@ -11,12 +11,94 @@ class FeedbackService {
         if (!feedback) {
             throw new ApiError(404, "Feedback record not found");
         }
-        
+
         const details = await feedbackDetailRepository.findByFeedbackId(feedbackId);
         return {
             ...feedback,
             ratings: details
         };
+    }
+
+
+    // =====================================================
+    // HR - EVALUATION STATUS
+    // =====================================================
+
+    async getFeedbackStatusForHR(
+        surveyId,
+        fromDeptId
+    ) {
+
+        if (!surveyId || !fromDeptId) {
+
+            throw new ApiError(
+                400,
+                "surveyId and fromDeptId are required"
+            );
+
+        }
+
+        return await feedbackRepository
+            .getFeedbackSubmissionStatus(
+                surveyId,
+                fromDeptId
+            );
+
+    }
+
+
+    // =====================================================
+    // HR - FEEDBACK DETAILS
+    // =====================================================
+
+    async getFeedbackDetailsForHR(
+        surveyId,
+        fromDeptId,
+        toDeptId
+    ) {
+
+        if (
+            !surveyId ||
+            !fromDeptId ||
+            !toDeptId
+        ) {
+
+            throw new ApiError(
+                400,
+                "surveyId, fromDeptId and toDeptId are required"
+            );
+
+        }
+
+
+        const feedback =
+            await feedbackRepository
+                .findBySurveyAndDepts(
+                    surveyId,
+                    fromDeptId,
+                    toDeptId
+                );
+
+
+        if (!feedback) {
+
+            return null;
+
+        }
+
+
+        const ratings =
+            await feedbackDetailRepository
+                .findByFeedbackId(
+                    feedback.feedback_id
+                );
+
+
+        return {
+            ...feedback,
+            ratings
+        };
+
     }
 
     async getFeedbackStatusForHOD(surveyId, fromDeptId) {
@@ -107,7 +189,7 @@ class FeedbackService {
         if (status === "submitted") {
             const ratedParamIds = ratings.map(r => parseInt(r.parameter_id));
             const missingParams = activeParams.filter(ap => !ratedParamIds.includes(ap.parameter_id));
-            
+
             if (missingParams.length > 0) {
                 const missingNames = missingParams.map(mp => mp.parameter_name).join(", ");
                 throw new ApiError(400, `Cannot submit. Missing ratings for parameters: ${missingNames}`);

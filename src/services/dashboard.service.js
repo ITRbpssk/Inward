@@ -56,6 +56,27 @@ class DashboardService {
         return await dashboardRepository.getDepartmentWiseScores(resolvedId);
     }
 
+
+    // =====================================================
+    // DEPARTMENT EVALUATION OVERVIEW
+    // =====================================================
+
+    async getDepartmentEvaluationOverview(surveyId) {
+
+        const resolvedId =
+            await this.resolveSurveyId(surveyId);
+
+
+        if (!resolvedId) {
+            return [];
+        }
+
+
+        return await dashboardRepository
+            .getDepartmentEvaluationOverview(resolvedId);
+
+    }
+
     async getDepartmentDetailedAnalytics(surveyId, departmentId) {
         const resolvedId = await this.resolveSurveyId(surveyId);
         if (!resolvedId) {
@@ -86,7 +107,7 @@ class DashboardService {
         }
 
         const rawMatrix = await dashboardRepository.getFeedbackMatrix(resolvedId);
-        
+
         // Find all departments involved
         const depts = await dashboardRepository.getDepartmentWiseScores(resolvedId);
         const deptCodes = depts.map(d => d.department_code);

@@ -6,6 +6,43 @@ class SurveyRepository {
         return rows;
     }
 
+
+
+    async findSurveysByDepartmentId(departmentId) {
+
+    const query = `
+        SELECT
+            s.survey_id,
+            s.survey_name,
+            s.start_date,
+            s.end_date,
+            s.status,
+            sd.survey_department_id,
+            sd.department_id,
+            d.department_code,
+            d.department_name
+        FROM surveys s
+
+        INNER JOIN survey_departments sd
+            ON s.survey_id = sd.survey_id
+
+        INNER JOIN departments d
+            ON sd.department_id = d.department_id
+
+        WHERE sd.department_id = ?
+
+        ORDER BY s.survey_id DESC
+    `;
+
+    const [rows] =
+        await pool.query(
+            query,
+            [departmentId]
+        );
+
+    return rows;
+}
+
     async findById(surveyId) {
         const [rows] = await pool.query("SELECT * FROM surveys WHERE survey_id = ?", [surveyId]);
         return rows[0] || null;

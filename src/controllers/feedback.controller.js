@@ -21,6 +21,97 @@ const getFeedbackStatusForHOD = async (req, res, next) => {
     }
 };
 
+// =====================================================
+// HR - EVALUATION STATUS
+// =====================================================
+
+const getFeedbackStatusForHR = async (
+    req,
+    res,
+    next
+) => {
+
+    try {
+
+        const {
+            survey_id,
+            from_department_id
+        } = req.query;
+
+
+        const status =
+            await feedbackService
+                .getFeedbackStatusForHR(
+                    survey_id,
+                    from_department_id
+                );
+
+
+        res.status(200).json(
+
+            new ApiResponse(
+                200,
+                status,
+                "HR feedback status fetched successfully"
+            )
+
+        );
+
+    } catch (error) {
+
+        next(error);
+
+    }
+
+};
+
+
+// =====================================================
+// HR - FEEDBACK DETAILS
+// =====================================================
+
+const getFeedbackDetailsForHR = async (
+    req,
+    res,
+    next
+) => {
+
+    try {
+
+        const {
+            survey_id,
+            from_department_id,
+            to_department_id
+        } = req.query;
+
+
+        const feedback =
+            await feedbackService
+                .getFeedbackDetailsForHR(
+                    survey_id,
+                    from_department_id,
+                    to_department_id
+                );
+
+
+        res.status(200).json(
+
+            new ApiResponse(
+                200,
+                feedback,
+                "HR feedback details fetched successfully"
+            )
+
+        );
+
+    } catch (error) {
+
+        next(error);
+
+    }
+
+};
+
 const getFeedbackDetails = async (req, res, next) => {
     try {
         const { survey_id, to_department_id } = req.query;
@@ -43,8 +134,18 @@ const submitOrSaveFeedback = async (req, res, next) => {
 };
 
 module.exports = {
+
     getFeedbackById,
+
     getFeedbackStatusForHOD,
+
     getFeedbackDetails,
-    submitOrSaveFeedback
+
+    submitOrSaveFeedback,
+
+    // HR
+    getFeedbackStatusForHR,
+
+    getFeedbackDetailsForHR
+
 };

@@ -21,6 +21,44 @@ const getDepartmentAnalytics = async (req, res, next) => {
     }
 };
 
+
+const getDepartmentEvaluationOverview = async (req, res, next) => {
+
+    try {
+
+        const { survey_id } = req.query;
+
+        const overview =
+            await dashboardService
+                .getDepartmentEvaluationOverview(survey_id);
+
+        res
+            .status(200)
+            .json(
+                new ApiResponse(
+                    200,
+                    overview,
+                    "Department evaluation overview fetched successfully"
+                )
+            );
+
+    } catch (error) {
+
+        next(error);
+
+    }
+
+};
+
+
+
+
+
+
+
+
+
+
 const getDepartmentDetailedAnalytics = async (req, res, next) => {
     try {
         const { survey_id, department_id } = req.query;
@@ -44,6 +82,7 @@ const getMatrix = async (req, res, next) => {
 module.exports = {
     getSummary,
     getDepartmentAnalytics,
+    getDepartmentEvaluationOverview,
     getDepartmentDetailedAnalytics,
     getMatrix
 };

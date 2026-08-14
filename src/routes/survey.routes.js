@@ -34,6 +34,26 @@ router.get(
 );
 
 
+
+
+
+
+
+
+
+// =====================================================
+// MY ASSIGNED SURVEYS
+// HOD + HR
+// =====================================================
+
+router.get(
+    "/my-surveys",
+    roleMiddleware([
+        ROLES.HOD,
+        ROLES.HR
+    ]),
+    surveyController.getMySurveys
+);
 // =====================================================
 // SURVEY CRUD
 // ADMIN ONLY

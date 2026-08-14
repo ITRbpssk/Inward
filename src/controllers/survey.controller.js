@@ -28,6 +28,38 @@ const getActiveSurvey = async (req, res, next) => {
     }
 };
 
+
+
+
+const getMySurveys = async (req, res, next) => {
+
+    try {
+
+        const departmentId =
+            req.user.department_id;
+
+        const surveys =
+            await surveyService
+                .getMySurveys(departmentId);
+
+        res.status(200).json(
+            new ApiResponse(
+                200,
+                surveys,
+                "Assigned surveys fetched successfully"
+            )
+        );
+
+    } catch (error) {
+
+        next(error);
+
+    }
+
+};
+
+
+
 const createSurvey = async (req, res, next) => {
     try {
         const survey = await surveyService.createSurvey(req.body);
@@ -72,10 +104,19 @@ const deleteSurvey = async (req, res, next) => {
 };
 
 module.exports = {
+
     getAllSurveys,
+
     getSurveyById,
+
     getActiveSurvey,
+
+    getMySurveys,
+
     createSurvey,
+
     updateSurvey,
+
     deleteSurvey
+
 };

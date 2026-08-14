@@ -50,6 +50,28 @@ router.get(
 );
 
 
+
+
+
+
+
+
+
+// =====================================================
+// DEPARTMENT EVALUATION OVERVIEW
+// ADMIN + HR
+// =====================================================
+
+router.get(
+    "/department-evaluation-overview",
+    roleMiddleware([
+        ROLES.ADMIN,
+        ROLES.HR
+    ]),
+    dashboardController.getDepartmentEvaluationOverview
+);
+
+
 // =====================================================
 // DEPARTMENT DETAILED ANALYTICS
 // ADMIN + HOD + HR

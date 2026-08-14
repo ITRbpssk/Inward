@@ -217,30 +217,224 @@ class DashboardRepository {
         }));
     }
 
+
+    // =====================================================
+// DEPARTMENT EVALUATION OVERVIEW
+// Evaluator Department → Target Departments
+// Includes Feedback Status + Score
+// =====================================================
+
+async getDepartmentEvaluationOverview(surveyId) {
+
+    const query = `
+        SELECT
+            from_dept.department_id AS from_department_id,
+            from_dept.department_name AS from_department_name,
+            from_dept.department_code AS from_department_code,
+
+            dm.mapping_id,
+
+            to_dept.department_id AS to_department_id,
+            to_dept.department_name AS to_department_name,
+            to_dept.department_code AS to_department_code,
+
+            COALESCE(f.feedback_id, NULL) AS feedback_id,
+
+            COALESCE(
+                f.status,
+                'not_started'
+            ) AS feedback_status,
+
+            f.submitted_on,
+
+            score_data.score
+
+        FROM department_mappings dm
+
+        JOIN departments from_dept
+            ON dm.from_department_id =
+               from_dept.department_id
+
+        JOIN departments to_dept
+            ON dm.to_department_id =
+               to_dept.department_id
+
+        LEFT JOIN feedbacks f
+            ON f.survey_id = ?
+            AND f.from_department_id =
+                dm.from_department_id
+            AND f.to_department_id =
+                dm.to_department_id
+
+        LEFT JOIN (
+
+            SELECT
+                f2.feedback_id,
+
+                SUM(
+                    fd.rating * p.weightage
+                )
+                /
+                NULLIF(
+                    SUM(p.weightage),
+                    0
+                ) AS score
+
+            FROM feedbacks f2
+
+            JOIN feedback_details fd
+                ON f2.feedback_id =
+                   fd.feedback_id
+
+            JOIN parameters p
+                ON fd.parameter_id =
+                   p.parameter_id
+
+            WHERE
+                f2.survey_id = ?
+                AND f2.status = 'submitted'
+
+            GROUP BY
+                f2.feedback_id
+
+        ) score_data
+
+            ON f.feedback_id =
+               score_data.feedback_id
+
+        WHERE
+            dm.status = 'active'
+
+            AND from_dept.status = 'active'
+
+            AND to_dept.status = 'active'
+
+        ORDER BY
+            from_dept.department_name ASC,
+            to_dept.department_name ASC
+    `;
+
+
+    const [rows] =
+        await pool.query(
+            query,
+            [
+                surveyId,
+                surveyId
+            ]
+        );
+
+
+    return rows.map(row => ({
+
+        from_department_id:
+            Number(row.from_department_id),
+
+        from_department_name:
+            row.from_department_name,
+
+        from_department_code:
+            row.from_department_code,
+
+        mapping_id:
+            Number(row.mapping_id),
+
+        to_department_id:
+            Number(row.to_department_id),
+
+        to_department_name:
+            row.to_department_name,
+
+        to_department_code:
+            row.to_department_code,
+
+        feedback_id:
+            row.feedback_id
+                ? Number(row.feedback_id)
+                : null,
+
+        feedback_status:
+            row.feedback_status,
+
+        submitted_on:
+            row.submitted_on || null,
+
+        score:
+            row.score !== null
+                ? Number(
+                    Number(row.score).toFixed(2)
+                )
+                : null
+
+    }));
+
+}
+
     /**
      * Get detailed feedback ratings received by a specific department, broken down by parameter.
      */
     async getDepartmentParameterScores(surveyId, departmentId) {
-        const query = `
-            SELECT 
-                p.parameter_id,
-                p.parameter_name,
-                p.description,
-                p.weightage,
-                COALESCE(AVG(fd.rating), 0) AS average_rating
-            FROM parameters p
-            LEFT JOIN feedback_details fd ON p.parameter_id = fd.parameter_id
-            LEFT JOIN feedbacks f ON fd.feedback_id = f.feedback_id AND f.survey_id = ? AND f.to_department_id = ? AND f.status = 'submitted'
-            WHERE p.status = 'active'
-            GROUP BY p.parameter_id, p.parameter_name, p.description, p.weightage, p.display_order
-            ORDER BY p.display_order ASC
-        `;
-        const [rows] = await pool.query(query, [surveyId, departmentId]);
-        return rows.map(r => ({
-            ...r,
-            average_rating: parseFloat(parseFloat(r.average_rating).toFixed(2))
-        }));
-    }
+
+    const query = `
+        SELECT
+            p.parameter_id,
+            p.parameter_name,
+            p.description,
+            p.weightage,
+            AVG(fd.rating) AS average_rating
+
+        FROM feedbacks f
+
+        INNER JOIN feedback_details fd
+            ON f.feedback_id = fd.feedback_id
+
+        INNER JOIN parameters p
+            ON fd.parameter_id = p.parameter_id
+
+        WHERE
+            f.survey_id = ?
+            AND f.to_department_id = ?
+            AND f.status = 'submitted'
+            AND p.status = 'active'
+
+        GROUP BY
+            p.parameter_id,
+            p.parameter_name,
+            p.description,
+            p.weightage,
+            p.display_order
+
+        ORDER BY
+            p.display_order ASC
+    `;
+
+
+    const [rows] =
+        await pool.query(
+            query,
+            [
+                surveyId,
+                departmentId
+            ]
+        );
+
+
+    return rows.map(row => ({
+
+        ...row,
+
+        average_rating:
+            row.average_rating !== null
+                ? Number(
+                    Number(
+                        row.average_rating
+                    ).toFixed(2)
+                )
+                : 0
+
+    }));
+
+}
 
     /**
      * Get a cross-tabulation mapping matrix between departments for the survey.
