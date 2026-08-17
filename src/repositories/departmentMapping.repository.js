@@ -15,6 +15,57 @@ class DepartmentMappingRepository {
         return rows;
     }
 
+    async createBulk(fromDepartmentId, toDepartmentIds, status = "active") {
+
+    const connection = await pool.getConnection();
+
+    try {
+
+        await connection.beginTransaction();
+
+        const createdIds = [];
+
+        for (const toDepartmentId of toDepartmentIds) {
+
+            const query = `
+                INSERT INTO department_mappings
+                (
+                    from_department_id,
+                    to_department_id,
+                    status
+                )
+                VALUES (?, ?, ?)
+            `;
+
+            const [result] = await connection.query(
+                query,
+                [
+                    fromDepartmentId,
+                    toDepartmentId,
+                    status
+                ]
+            );
+
+            createdIds.push(result.insertId);
+        }
+
+        await connection.commit();
+
+        return createdIds;
+
+    } catch (error) {
+
+        await connection.rollback();
+
+        throw error;
+
+    } finally {
+
+        connection.release();
+
+    }
+}
+
     async findById(mappingId) {
         const query = `
             SELECT dm.*,

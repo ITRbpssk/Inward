@@ -1,7 +1,6 @@
 const express = require("express");
 
-const router =
-    express.Router();
+const router = express.Router();
 
 const profileController =
     require("../controllers/profile.controller");
@@ -17,10 +16,23 @@ const authMiddleware =
 router.use(authMiddleware);
 
 
-// Logged-in user's own profile
+// =====================================================
+// GET LOGGED-IN USER PROFILE
+// =====================================================
+
 router.get(
     "/",
     profileController.getMyProfile
+);
+
+
+// =====================================================
+// CHANGE LOGGED-IN USER PASSWORD
+// =====================================================
+
+router.put(
+    "/change-password",
+    profileController.changePassword
 );
 
 

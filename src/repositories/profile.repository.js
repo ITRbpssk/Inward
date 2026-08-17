@@ -1,6 +1,12 @@
 const { pool } = require("../config/db");
 
+
 class ProfileRepository {
+
+
+    // =====================================================
+    // GET MY PROFILE
+    // =====================================================
 
     async findMyProfile(userId) {
 
@@ -33,15 +39,78 @@ class ProfileRepository {
             WHERE u.user_id = ?
         `;
 
+
         const [rows] =
             await pool.query(
                 query,
                 [userId]
             );
 
+
         return rows[0] || null;
+
+    }
+
+
+    // =====================================================
+    // GET USER WITH PASSWORD
+    // =====================================================
+
+    async findUserWithPassword(userId) {
+
+        const query = `
+            SELECT
+                user_id,
+                password
+            FROM users
+            WHERE user_id = ?
+        `;
+
+
+        const [rows] =
+            await pool.query(
+                query,
+                [userId]
+            );
+
+
+        return rows[0] || null;
+
+    }
+
+
+    // =====================================================
+    // UPDATE PASSWORD
+    // =====================================================
+
+    async updatePassword(
+        userId,
+        hashedPassword
+    ) {
+
+        const query = `
+            UPDATE users
+            SET password = ?
+            WHERE user_id = ?
+        `;
+
+
+        const [result] =
+            await pool.query(
+                query,
+                [
+                    hashedPassword,
+                    userId
+                ]
+            );
+
+
+        return result.affectedRows > 0;
+
     }
 
 }
 
-module.exports = new ProfileRepository();
+
+module.exports =
+    new ProfileRepository();

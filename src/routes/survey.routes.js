@@ -62,7 +62,8 @@ router.get(
 router.get(
     "/",
     roleMiddleware([
-        ROLES.ADMIN
+        ROLES.ADMIN,
+         ROLES.HR
     ]),
     surveyController.getAllSurveys
 );

@@ -12,7 +12,14 @@ router.get("/my-targets", roleMiddleware([ROLES.HOD]), departmentMappingControll
 
 // Admin-only routing for all mappings CRUD
 router.get("/", roleMiddleware([ROLES.ADMIN]), departmentMappingController.getAllMappings);
+
+router.post(
+    "/bulk",
+    roleMiddleware([ROLES.ADMIN]),
+    departmentMappingController.createBulkMappings
+);
 router.get("/:id", roleMiddleware([ROLES.ADMIN]), departmentMappingController.getMappingById);
+
 router.post("/", roleMiddleware([ROLES.ADMIN]), departmentMappingController.createMapping);
 router.put("/:id", roleMiddleware([ROLES.ADMIN]), departmentMappingController.updateMapping);
 router.delete("/:id", roleMiddleware([ROLES.ADMIN]), departmentMappingController.deleteMapping);

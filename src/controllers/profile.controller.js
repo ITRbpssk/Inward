@@ -34,6 +34,50 @@ const getMyProfile =
     };
 
 
+
+
+const changePassword =
+    async (req, res, next) => {
+
+        try {
+
+            const userId =
+                req.user.user_id;
+
+
+            const {
+                currentPassword,
+                newPassword
+            } = req.body;
+
+
+            await profileService.changePassword(
+                userId,
+                currentPassword,
+                newPassword
+            );
+
+
+            res
+                .status(200)
+                .json(
+                    new ApiResponse(
+                        200,
+                        null,
+                        "Password changed successfully"
+                    )
+                );
+
+        } catch (error) {
+
+            next(error);
+
+        }
+
+    };
+
+
 module.exports = {
-    getMyProfile
+    getMyProfile,
+    changePassword
 };

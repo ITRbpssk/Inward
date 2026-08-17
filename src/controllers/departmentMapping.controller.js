@@ -28,6 +28,32 @@ const createMapping = async (req, res, next) => {
     }
 };
 
+
+const createBulkMappings = async (req, res, next) => {
+
+    try {
+
+        const mappings =
+            await departmentMappingService
+                .createBulkMappings(req.body);
+
+
+        res.status(201).json(
+            new ApiResponse(
+                201,
+                mappings,
+                "Department mappings created successfully"
+            )
+        );
+
+    } catch (error) {
+
+        next(error);
+
+    }
+
+};
+
 const updateMapping = async (req, res, next) => {
     try {
         const mapping = await departmentMappingService.updateMapping(req.params.id, req.body);
@@ -60,6 +86,7 @@ module.exports = {
     getAllMappings,
     getMappingById,
     createMapping,
+    createBulkMappings,
     updateMapping,
     deleteMapping,
     getMyEvaluationTargets

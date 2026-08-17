@@ -15,6 +15,181 @@ class DepartmentMappingService {
         return mapping;
     }
 
+
+    async createBulkMappings(mappingData) {
+
+    const {
+        from_department_id,
+        to_department_ids,
+        status
+    } = mappingData;
+
+
+    // =====================================================
+    // VALIDATION
+    // =====================================================
+
+    if (
+        !from_department_id ||
+        !Array.isArray(to_department_ids) ||
+        to_department_ids.length === 0
+    ) {
+
+        throw new ApiError(
+            400,
+            "from_department_id and to_department_ids are required"
+        );
+
+    }
+
+
+    const fromDepartmentId =
+        parseInt(from_department_id);
+
+
+    const targetDepartmentIds =
+        to_department_ids.map(id => parseInt(id));
+
+
+    // =====================================================
+    // REMOVE DUPLICATES
+    // =====================================================
+
+    const uniqueTargetIds =
+        [...new Set(targetDepartmentIds)];
+
+
+    // =====================================================
+    // SELF MAPPING CHECK
+    // =====================================================
+
+    if (
+        uniqueTargetIds.includes(fromDepartmentId)
+    ) {
+
+        throw new ApiError(
+            400,
+            "A department cannot evaluate itself"
+        );
+
+    }
+
+
+    // =====================================================
+    // VERIFY FROM DEPARTMENT
+    // =====================================================
+
+    const fromDept =
+        await departmentRepository.findById(
+            fromDepartmentId
+        );
+
+
+    if (!fromDept) {
+
+        throw new ApiError(
+            400,
+            "Invalid from_department_id"
+        );
+
+    }
+
+
+    // =====================================================
+    // VERIFY TARGET DEPARTMENTS
+    // =====================================================
+
+    for (const targetId of uniqueTargetIds) {
+
+        const targetDept =
+            await departmentRepository.findById(
+                targetId
+            );
+
+
+        if (!targetDept) {
+
+            throw new ApiError(
+                400,
+                `Invalid target department ID: ${targetId}`
+            );
+
+        }
+
+    }
+
+
+    // =====================================================
+    // CHECK DUPLICATE MAPPINGS
+    // =====================================================
+
+    const existingMappings = [];
+
+    for (const targetId of uniqueTargetIds) {
+
+        const existing =
+            await departmentMappingRepository
+                .findByFromAndTo(
+                    fromDepartmentId,
+                    targetId
+                );
+
+
+        if (existing) {
+
+            existingMappings.push(targetId);
+
+        }
+
+    }
+
+
+    if (existingMappings.length > 0) {
+
+        throw new ApiError(
+            400,
+            `Mapping already exists for department ID(s): ${existingMappings.join(", ")}`
+        );
+
+    }
+
+
+    // =====================================================
+    // CREATE BULK MAPPINGS
+    // =====================================================
+
+    const createdIds =
+        await departmentMappingRepository.createBulk(
+            fromDepartmentId,
+            uniqueTargetIds,
+            status || "active"
+        );
+
+
+    // =====================================================
+    // FETCH CREATED RECORDS
+    // =====================================================
+
+    const createdMappings = [];
+
+    for (const mappingId of createdIds) {
+
+        const mapping =
+            await departmentMappingRepository
+                .findById(mappingId);
+
+        if (mapping) {
+
+            createdMappings.push(mapping);
+
+        }
+
+    }
+
+
+    return createdMappings;
+}
+
     async createMapping(mappingData) {
         const { from_department_id, to_department_id, status } = mappingData;
 
