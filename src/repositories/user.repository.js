@@ -34,6 +34,105 @@ class UserRepository {
         return rows[0] || null;
     }
 
+
+
+async createPasswordResetOtp(
+    userId,
+    otpHash,
+    expiresAt
+) {
+
+    const query = `
+        INSERT INTO password_reset_otps
+        (
+            user_id,
+            otp_hash,
+            expires_at
+        )
+        VALUES (?, ?, ?)
+    `;
+
+    const [result] =
+        await pool.query(
+            query,
+            [
+                userId,
+                otpHash,
+                expiresAt
+            ]
+        );
+
+    return result.insertId;
+}
+
+
+async invalidateOldOtps(userId) {
+
+    const query = `
+        UPDATE password_reset_otps
+        SET verified_at = NOW()
+        WHERE user_id = ?
+        AND verified_at IS NULL
+    `;
+
+    await pool.query(
+        query,
+        [userId]
+    );
+}
+
+async findLatestPasswordResetOtp(userId) {
+
+    const query = `
+        SELECT *
+        FROM password_reset_otps
+        WHERE user_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+    `;
+
+    const [rows] =
+        await pool.query(
+            query,
+            [userId]
+        );
+
+    return rows[0] || null;
+}
+
+async incrementOtpAttempts(id) {
+
+    const query = `
+        UPDATE password_reset_otps
+        SET attempts = attempts + 1
+        WHERE id = ?
+    `;
+
+    await pool.query(
+        query,
+        [id]
+    );
+}
+
+async markOtpVerified(id) {
+
+    const query = `
+        UPDATE password_reset_otps
+        SET verified_at = NOW()
+        WHERE id = ?
+    `;
+
+    await pool.query(
+        query,
+        [id]
+    );
+}
+
+
+
+
+
+
     async findById(userId) {
         const query = `
             SELECT u.*, r.role_name, d.department_name, d.department_code 

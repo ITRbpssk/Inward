@@ -15,6 +15,32 @@ const ROLES =
     require("../constants/roles");
 
 
+// =====================================================
+// FEEDBACK ROUTER LOADED
+// =====================================================
+
+console.log("🔥 FEEDBACK ROUTES FILE LOADED");
+
+
+// =====================================================
+// FEEDBACK ROUTE DEBUG
+// =====================================================
+
+router.use((req, res, next) => {
+
+    console.log("🔥 FEEDBACK ROUTE HIT");
+    console.log("METHOD:", req.method);
+    console.log("URL:", req.originalUrl);
+
+    next();
+
+});
+
+
+// =====================================================
+// AUTHENTICATION
+// =====================================================
+
 router.use(authMiddleware);
 
 
@@ -58,26 +84,79 @@ router.get(
 
 
 // =====================================================
-// HR - VIEW DEPARTMENT EVALUATIONS
+// HR + ADMIN - VIEW DEPARTMENT EVALUATIONS
 // =====================================================
-
+//
+// Used by:
+//
+// HR Panel
+// Admin Dashboard
+//
+// GET:
+// /feedbacks/hr-status
+//
+// Query:
+// survey_id
+// from_department_id
+//
+// Returns:
+// Target departments
+// Submitted
+// Draft
+// Pending
+//
+// =====================================================
 router.get(
     "/hr-status",
+
+    // DEBUG
+    (req, res, next) => {
+
+        console.log("");
+        console.log("🔥🔥🔥 HR-STATUS ROUTE HIT 🔥🔥🔥");
+        console.log("URL:", req.originalUrl);
+        console.log(
+            "AUTH HEADER EXISTS:",
+            !!req.headers.authorization
+        );
+        console.log(
+            "AUTH HEADER:",
+            req.headers.authorization
+                ? "Bearer token present"
+                : "NO TOKEN"
+        );
+        console.log("USER BEFORE ROLE:", req.user);
+        console.log("🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥");
+
+        next();
+    },
+
     roleMiddleware([
-        ROLES.HR
+        ROLES.HR,
+        ROLES.ADMIN
     ]),
+
     feedbackController.getFeedbackStatusForHR
 );
-
-
 // =====================================================
-// HR - VIEW FEEDBACK DETAILS
+// HR + ADMIN - VIEW FEEDBACK DETAILS
+// =====================================================
+//
+// GET:
+// /feedbacks/hr-details
+//
+// Query:
+// survey_id
+// from_department_id
+// to_department_id
+//
 // =====================================================
 
 router.get(
     "/hr-details",
     roleMiddleware([
-        ROLES.HR
+        ROLES.HR,
+        ROLES.ADMIN
     ]),
     feedbackController.getFeedbackDetailsForHR
 );
@@ -85,7 +164,8 @@ router.get(
 
 // =====================================================
 // ADMIN + HOD - GET FEEDBACK BY ID
-// IMPORTANT: THIS MUST BE LAST
+// IMPORTANT:
+// THIS MUST BE LAST
 // =====================================================
 
 router.get(
@@ -97,5 +177,9 @@ router.get(
     feedbackController.getFeedbackById
 );
 
+
+// =====================================================
+// EXPORT ROUTER
+// =====================================================
 
 module.exports = router;
