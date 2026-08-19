@@ -1,29 +1,97 @@
-const surveyRepository = require("../repositories/survey.repository");
-const ApiError = require("../utils/ApiError");
+const surveyRepository =
+    require("../repositories/survey.repository");
+
+const ApiError =
+    require("../utils/ApiError");
+
 
 class SurveyService {
+
+
+    // =====================================================
+    // GET ALL SURVEYS
+    // =====================================================
+
     async getAllSurveys() {
+
         return await surveyRepository.findAll();
+
     }
+
+
+    // =====================================================
+    // GET SURVEY BY ID
+    // =====================================================
 
     async getSurveyById(surveyId) {
-        const survey = await surveyRepository.findById(surveyId);
+
+        const survey =
+            await surveyRepository.findById(
+                surveyId
+            );
+
         if (!survey) {
-            throw new ApiError(404, "Survey not found");
+
+            throw new ApiError(
+                404,
+                "Survey not found"
+            );
+
         }
+
         return survey;
     }
+
+
+    // =====================================================
+    // GET ONE ACTIVE SURVEY
+    //
+    // BACKWARD COMPATIBILITY
+    //
+    // Multiple active surveys are allowed.
+    // This returns the latest active survey.
+    // =====================================================
 
     async getActiveSurvey() {
-        const survey = await surveyRepository.findActiveSurvey();
+
+        const survey =
+            await surveyRepository.findActiveSurvey();
+
         if (!survey) {
-            throw new ApiError(404, "No active survey found at the moment");
+
+            throw new ApiError(
+                404,
+                "No active survey found at the moment"
+            );
+
         }
+
         return survey;
     }
 
 
-    async getMySurveys(departmentId) {
+    // =====================================================
+    // GET ALL ACTIVE SURVEYS
+    //
+    // IMPORTANT:
+    // Multiple surveys can be active simultaneously.
+    // =====================================================
+
+    async getActiveSurveys() {
+
+        return await surveyRepository
+            .findActiveSurveys();
+
+    }
+
+
+    // =====================================================
+    // GET MY SURVEYS
+    // =====================================================
+
+    async getMySurveys(
+        departmentId
+    ) {
 
         if (!departmentId) {
 
@@ -40,88 +108,263 @@ class SurveyService {
             );
     }
 
-    async createSurvey(surveyData) {
-        const { survey_name, start_date, end_date, status } = surveyData;
 
-        if (!survey_name || !start_date || !end_date) {
-            throw new ApiError(400, "survey_name, start_date, and end_date are required");
-        }
+    // =====================================================
+    // CREATE SURVEY
+    // =====================================================
 
-        if (new Date(start_date) > new Date(end_date)) {
-            throw new ApiError(400, "start_date cannot be after end_date");
-        }
+    async createSurvey(
+        surveyData
+    ) {
 
-        // If status is 'active', verify if there's already another active survey
-        if (status === "active") {
-            const activeSurvey = await surveyRepository.findActiveSurvey();
-            if (activeSurvey) {
-                throw new ApiError(400, `Another survey is currently active (ID: ${activeSurvey.survey_id}). Close it before activating a new one.`);
-            }
-        }
-
-        const newId = await surveyRepository.create({
+        const {
             survey_name,
             start_date,
             end_date,
             status
-        });
-        return await surveyRepository.findById(newId);
+        } = surveyData;
+
+
+        // -------------------------------------------------
+        // REQUIRED FIELDS
+        // -------------------------------------------------
+
+        if (
+            !survey_name ||
+            !start_date ||
+            !end_date
+        ) {
+
+            throw new ApiError(
+                400,
+                "survey_name, start_date, and end_date are required"
+            );
+
+        }
+
+
+        // -------------------------------------------------
+        // DATE VALIDATION
+        // -------------------------------------------------
+
+        if (
+            new Date(start_date) >
+            new Date(end_date)
+        ) {
+
+            throw new ApiError(
+                400,
+                "start_date cannot be after end_date"
+            );
+
+        }
+
+
+        // =================================================
+        // IMPORTANT CHANGE
+        // =================================================
+        //
+        // DO NOT CHECK FOR ANOTHER ACTIVE SURVEY.
+        //
+        // Multiple active surveys are allowed.
+        //
+        // Example:
+        //
+        // Survey 1 -> ACTIVE
+        // Survey 2 -> ACTIVE
+        // Survey 3 -> DRAFT
+        // Survey 4 -> ACTIVE
+        //
+        // =================================================
+
+
+        const newId =
+            await surveyRepository.create({
+
+                survey_name,
+                start_date,
+                end_date,
+                status: status || "draft"
+
+            });
+
+
+        return await surveyRepository.findById(
+            newId
+        );
+
     }
 
-    async updateSurvey(surveyId, surveyData) {
 
-        let { survey_name, start_date, end_date, status } = surveyData;
+    // =====================================================
+    // UPDATE SURVEY
+    // =====================================================
 
-        // ✅ ISO Date → MySQL DATE
-        start_date = start_date.split("T")[0];
-        end_date = end_date.split("T")[0];
+    async updateSurvey(
+        surveyId,
+        surveyData
+    ) {
 
-        if (!survey_name || !start_date || !end_date) {
-            throw new ApiError(400, "survey_name, start_date, and end_date are required");
-        }
-
-        if (new Date(start_date) > new Date(end_date)) {
-            throw new ApiError(400, "start_date cannot be after end_date");
-        }
-
-        const survey = await surveyRepository.findById(surveyId);
-
-        if (!survey) {
-            throw new ApiError(404, "Survey not found");
-        }
-
-        // If activating, verify if there's another active survey
-        if (status === "active" && survey.status !== "active") {
-
-            const activeSurvey = await surveyRepository.findActiveSurvey();
-
-            if (activeSurvey && activeSurvey.survey_id !== parseInt(surveyId)) {
-                throw new ApiError(
-                    400,
-                    `Another survey is currently active (ID: ${activeSurvey.survey_id}). Close it before activating this one.`
-                );
-            }
-
-        }
-
-        await surveyRepository.update(surveyId, {
+        let {
             survey_name,
             start_date,
             end_date,
-            status: status || survey.status
-        });
+            status
+        } = surveyData;
 
-        return await surveyRepository.findById(surveyId);
 
-    }
+        // -------------------------------------------------
+        // ISO DATE -> MYSQL DATE
+        // -------------------------------------------------
 
-    async deleteSurvey(surveyId) {
-        const survey = await surveyRepository.findById(surveyId);
-        if (!survey) {
-            throw new ApiError(404, "Survey not found");
+        if (start_date) {
+
+            start_date =
+                start_date.split("T")[0];
+
         }
-        return await surveyRepository.delete(surveyId);
+
+        if (end_date) {
+
+            end_date =
+                end_date.split("T")[0];
+
+        }
+
+
+        // -------------------------------------------------
+        // REQUIRED FIELDS
+        // -------------------------------------------------
+
+        if (
+            !survey_name ||
+            !start_date ||
+            !end_date
+        ) {
+
+            throw new ApiError(
+                400,
+                "survey_name, start_date, and end_date are required"
+            );
+
+        }
+
+
+        // -------------------------------------------------
+        // DATE VALIDATION
+        // -------------------------------------------------
+
+        if (
+            new Date(start_date) >
+            new Date(end_date)
+        ) {
+
+            throw new ApiError(
+                400,
+                "start_date cannot be after end_date"
+            );
+
+        }
+
+
+        // -------------------------------------------------
+        // CHECK SURVEY EXISTS
+        // -------------------------------------------------
+
+        const survey =
+            await surveyRepository.findById(
+                surveyId
+            );
+
+
+        if (!survey) {
+
+            throw new ApiError(
+                404,
+                "Survey not found"
+            );
+
+        }
+
+
+        // =================================================
+        // IMPORTANT CHANGE
+        // =================================================
+        //
+        // NO ACTIVE SURVEY VALIDATION HERE.
+        //
+        // Any survey can be changed to ACTIVE.
+        //
+        // Example:
+        //
+        // Existing:
+        // Survey 1 -> ACTIVE
+        //
+        // Update:
+        // Survey 2 -> ACTIVE
+        //
+        // Result:
+        // Survey 1 -> ACTIVE
+        // Survey 2 -> ACTIVE
+        //
+        // =================================================
+
+
+        await surveyRepository.update(
+            surveyId,
+            {
+
+                survey_name,
+
+                start_date,
+
+                end_date,
+
+                status:
+                    status || survey.status
+
+            }
+        );
+
+
+        return await surveyRepository.findById(
+            surveyId
+        );
+
     }
+
+
+    // =====================================================
+    // DELETE SURVEY
+    // =====================================================
+
+    async deleteSurvey(
+        surveyId
+    ) {
+
+        const survey =
+            await surveyRepository.findById(
+                surveyId
+            );
+
+
+        if (!survey) {
+
+            throw new ApiError(
+                404,
+                "Survey not found"
+            );
+
+        }
+
+
+        return await surveyRepository.delete(
+            surveyId
+        );
+
+    }
+
 }
+
 
 module.exports = new SurveyService();
