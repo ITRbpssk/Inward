@@ -21,7 +21,9 @@ class SurveyRepository {
 
 
     // =====================================================
-    // GET SURVEYS BY DEPARTMENT
+    // GET SURVEYS BY TARGET DEPARTMENT
+    //
+    // Used when a department is the target department
     // =====================================================
 
     async findSurveysByDepartmentId(departmentId) {
@@ -64,6 +66,71 @@ class SurveyRepository {
 
 
     // =====================================================
+    // GET SURVEYS WHERE CURRENT DEPARTMENT IS EVALUATOR
+    //
+    // Example:
+    //
+    // HR evaluates IT
+    //
+    // HR HOD logs in
+    //     ↓
+    // HR is from_department
+    //     ↓
+    // IT is to_department
+    //
+    // Only surveys assigned to HR as evaluator are returned.
+    // =====================================================
+
+    async findSurveysByEvaluatorDepartmentId(departmentId) {
+
+        const query = `
+            SELECT
+                s.survey_id,
+                s.survey_name,
+                s.start_date,
+                s.end_date,
+                s.status,
+
+                dm.mapping_id,
+                dm.from_department_id,
+                dm.to_department_id,
+
+                target.department_code AS target_department_code,
+                target.department_name AS target_department_name,
+
+                evaluator.department_code AS evaluator_department_code,
+                evaluator.department_name AS evaluator_department_name
+
+            FROM department_mappings dm
+
+            INNER JOIN surveys s
+                ON dm.survey_id = s.survey_id
+
+            INNER JOIN departments evaluator
+                ON dm.from_department_id = evaluator.department_id
+
+            INNER JOIN departments target
+                ON dm.to_department_id = target.department_id
+
+            WHERE dm.from_department_id = ?
+              AND dm.status = 'active'
+              AND evaluator.status = 'active'
+              AND target.status = 'active'
+
+            ORDER BY s.survey_id DESC
+        `;
+
+        const [rows] =
+            await pool.query(
+                query,
+                [departmentId]
+            );
+
+        return rows;
+    }
+
+
+    // =====================================================
     // GET SURVEY BY ID
     // =====================================================
 
@@ -90,12 +157,7 @@ class SurveyRepository {
     //
     // BACKWARD COMPATIBILITY
     //
-    // This method is kept for existing code that expects
-    // a single survey.
-    //
-    // IMPORTANT:
-    // Multiple active surveys ARE allowed.
-    // This simply returns the latest active survey.
+    // Returns latest active survey.
     // =====================================================
 
     async findActiveSurvey() {
@@ -118,9 +180,6 @@ class SurveyRepository {
 
     // =====================================================
     // GET ALL ACTIVE SURVEYS
-    //
-    // IMPORTANT:
-    // Multiple active surveys are allowed.
     // =====================================================
 
     async findActiveSurveys() {
@@ -142,6 +201,13 @@ class SurveyRepository {
 
     // =====================================================
     // CREATE SURVEY
+    //
+    // OLD / BACKWARD COMPATIBILITY METHOD
+    //
+    // This creates only the survey record.
+    //
+    // New Create Survey flow should use:
+    // createSurveyWithDepartments()
     // =====================================================
 
     async create(surveyData) {
@@ -176,6 +242,180 @@ class SurveyRepository {
             );
 
         return result.insertId;
+    }
+
+
+    // =====================================================
+    // CREATE SURVEY WITH DEPARTMENT ASSIGNMENT
+    //
+    // This is the NEW main Create Survey method.
+    //
+    // Flow:
+    //
+    // 1. Create survey
+    //
+    // 2. Save target department
+    //    survey_departments
+    //
+    // 3. Save evaluating departments
+    //    department_mappings
+    //
+    // Everything happens inside ONE transaction.
+    // =====================================================
+
+    async createSurveyWithDepartments(surveyData) {
+
+        const {
+            survey_name,
+            start_date,
+            end_date,
+            status,
+            target_department_id,
+            evaluating_department_ids
+        } = surveyData;
+
+
+        const connection =
+            await pool.getConnection();
+
+
+        try {
+
+            // =================================================
+            // START TRANSACTION
+            // =================================================
+
+            await connection.beginTransaction();
+
+
+            // =================================================
+            // 1. CREATE SURVEY
+            // =================================================
+
+            const surveyQuery = `
+                INSERT INTO surveys
+                (
+                    survey_name,
+                    start_date,
+                    end_date,
+                    status
+                )
+                VALUES (?, ?, ?, ?)
+            `;
+
+            const [surveyResult] =
+                await connection.query(
+                    surveyQuery,
+                    [
+                        survey_name,
+                        start_date,
+                        end_date,
+                        status || "draft"
+                    ]
+                );
+
+
+            const surveyId =
+                surveyResult.insertId;
+
+
+            // =================================================
+            // 2. SAVE TARGET DEPARTMENT
+            //
+            // Example:
+            //
+            // Survey 5 → IT
+            // =================================================
+
+            const targetDepartmentQuery = `
+                INSERT INTO survey_departments
+                (
+                    survey_id,
+                    department_id
+                )
+                VALUES (?, ?)
+            `;
+
+            await connection.query(
+                targetDepartmentQuery,
+                [
+                    surveyId,
+                    target_department_id
+                ]
+            );
+
+
+            // =================================================
+            // 3. SAVE EVALUATING DEPARTMENTS
+            //
+            // Example:
+            //
+            // HR  → IT
+            // QA  → IT
+            // ACC → IT
+            // =================================================
+
+            const mappingQuery = `
+                INSERT INTO department_mappings
+                (
+                    survey_id,
+                    from_department_id,
+                    to_department_id,
+                    status
+                )
+                VALUES (?, ?, ?, ?)
+            `;
+
+
+            for (
+                const evaluatingDepartmentId
+                of evaluating_department_ids
+            ) {
+
+                await connection.query(
+                    mappingQuery,
+                    [
+                        surveyId,
+                        evaluatingDepartmentId,
+                        target_department_id,
+                        "active"
+                    ]
+                );
+
+            }
+
+
+            // =================================================
+            // COMMIT TRANSACTION
+            // =================================================
+
+            await connection.commit();
+
+
+            return surveyId;
+
+
+        } catch (error) {
+
+            // =================================================
+            // ROLLBACK
+            // =================================================
+
+            await connection.rollback();
+
+            throw error;
+
+
+        } finally {
+
+            // =================================================
+            // RELEASE CONNECTION
+            // =================================================
+
+            connection.release();
+
+        }
+
     }
 
 
@@ -244,5 +484,6 @@ class SurveyRepository {
     }
 
 }
+
 
 module.exports = new SurveyRepository();
