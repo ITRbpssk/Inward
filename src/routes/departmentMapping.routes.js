@@ -59,7 +59,25 @@ router.get(
 
 
 // =====================================================
-// ADMIN - CREATE BULK MAPPINGS
+// ADMIN - GENERAL DEPARTMENT MAPPINGS
+// =====================================================
+
+router.get(
+    "/general",
+
+    roleMiddleware([
+        ROLES.ADMIN
+    ]),
+
+    departmentMappingController
+        .getGeneralMappings
+);
+
+
+// =====================================================
+// ADMIN - SURVEY BULK
+//
+// survey.ts uses this.
 // =====================================================
 
 router.post(
@@ -71,6 +89,24 @@ router.post(
 
     departmentMappingController
         .createBulkMappings
+);
+
+
+// =====================================================
+// ADMIN - GENERAL DEPARTMENT BULK
+//
+// department-mapping.ts uses this.
+// =====================================================
+
+router.post(
+    "/department-bulk",
+
+    roleMiddleware([
+        ROLES.ADMIN
+    ]),
+
+    departmentMappingController
+        .createDepartmentBulkMappings
 );
 
 
@@ -93,7 +129,7 @@ router.get(
 
 
 // =====================================================
-// ADMIN - UPDATE ALL MAPPINGS OF SURVEY
+// ADMIN - UPDATE ALL SURVEY MAPPINGS
 //
 // USED BY EDIT SURVEY
 // =====================================================
@@ -127,7 +163,7 @@ router.get(
 
 
 // =====================================================
-// ADMIN - CREATE SINGLE MAPPING
+// ADMIN - CREATE SINGLE
 // =====================================================
 
 router.post(
@@ -143,7 +179,7 @@ router.post(
 
 
 // =====================================================
-// ADMIN - UPDATE SINGLE MAPPING
+// ADMIN - UPDATE SINGLE
 // =====================================================
 
 router.put(
@@ -159,7 +195,7 @@ router.put(
 
 
 // =====================================================
-// ADMIN - DELETE SINGLE MAPPING
+// ADMIN - DELETE SINGLE
 // =====================================================
 
 router.delete(

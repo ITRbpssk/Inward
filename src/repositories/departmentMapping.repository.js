@@ -32,10 +32,11 @@ class DepartmentMappingRepository {
             INNER JOIN departments t
                 ON dm.to_department_id = t.department_id
 
-            ORDER BY dm.mapping_id DESC
+            ORDER BY dm.mapping_id ASC
         `;
 
-        const [rows] = await pool.query(query);
+        const [rows] =
+            await pool.query(query);
 
         return rows;
     }
@@ -85,67 +86,11 @@ class DepartmentMappingRepository {
 
 
     // =====================================================
-    // GET MAPPINGS BY SURVEY
+    // FIND SURVEY-WISE DUPLICATE
     //
-    // VERY IMPORTANT:
-    // mapping_id ASC preserves creation order.
+    // Same mapping in different surveys = ALLOWED
     //
-    // Example:
-    //
-    // HR
-    // QA
-    // ACC
-    //
-    // Same order will be returned on edit.
-    // =====================================================
-
-    async findBySurveyId(surveyId) {
-
-        const query = `
-            SELECT
-                dm.mapping_id,
-                dm.survey_id,
-
-                dm.from_department_id,
-                dm.to_department_id,
-
-                dm.status,
-
-                dm.created_at,
-                dm.updated_at,
-
-                f.department_code AS from_department_code,
-                f.department_name AS from_department_name,
-
-                t.department_code AS to_department_code,
-                t.department_name AS to_department_name
-
-            FROM department_mappings dm
-
-            INNER JOIN departments f
-                ON dm.from_department_id = f.department_id
-
-            INNER JOIN departments t
-                ON dm.to_department_id = t.department_id
-
-            WHERE dm.survey_id = ?
-              AND dm.status = 'active'
-
-            ORDER BY dm.mapping_id ASC
-        `;
-
-        const [rows] =
-            await pool.query(
-                query,
-                [surveyId]
-            );
-
-        return rows;
-    }
-
-
-    // =====================================================
-    // FIND SINGLE SURVEY MAPPING
+    // Same mapping inside same survey = NOT ALLOWED
     // =====================================================
 
     async findByFromAndTo(
@@ -155,12 +100,20 @@ class DepartmentMappingRepository {
     ) {
 
         const query = `
-            SELECT *
+            SELECT
+                mapping_id,
+                survey_id,
+                from_department_id,
+                to_department_id,
+                status
+
             FROM department_mappings
 
             WHERE survey_id = ?
               AND from_department_id = ?
               AND to_department_id = ?
+
+            LIMIT 1
         `;
 
         const [rows] =
@@ -178,22 +131,60 @@ class DepartmentMappingRepository {
 
 
     // =====================================================
-    // CREATE BULK MAPPINGS
+    // FIND GENERAL DEPARTMENT MAPPING
     //
-    // IMPORTANT:
-    //
-    // toDepartmentIds order is preserved.
+    // survey_id IS NULL
+    // =====================================================
+
+    async findGlobalByFromAndTo(
+        fromDepartmentId,
+        toDepartmentId
+    ) {
+
+        const query = `
+            SELECT
+                mapping_id,
+                survey_id,
+                from_department_id,
+                to_department_id,
+                status
+
+            FROM department_mappings
+
+            WHERE survey_id IS NULL
+              AND from_department_id = ?
+              AND to_department_id = ?
+
+            LIMIT 1
+        `;
+
+        const [rows] =
+            await pool.query(
+                query,
+                [
+                    fromDepartmentId,
+                    toDepartmentId
+                ]
+            );
+
+        return rows[0] || null;
+    }
+
+
+    // =====================================================
+    // CREATE SURVEY BULK MAPPINGS
     //
     // Example:
     //
-    // [HR, QA, ACC]
+    // Survey = 10
+    // Target = QA
+    // Evaluators = HR, ACC, IT
     //
-    // DB insertion:
+    // Creates:
     //
-    // 1 -> HR
-    // 2 -> QA
-    // 3 -> ACC
-    //
+    // HR  -> QA
+    // ACC -> QA
+    // IT  -> QA
     // =====================================================
 
     async createBulk(
@@ -212,9 +203,8 @@ class DepartmentMappingRepository {
 
             const createdIds = [];
 
-
             for (
-                const evaluatingDepartmentId
+                const evaluatorId
                 of evaluatingDepartmentIds
             ) {
 
@@ -226,28 +216,94 @@ class DepartmentMappingRepository {
                         to_department_id,
                         status
                     )
-
                     VALUES (?, ?, ?, ?)
                 `;
-
 
                 const [result] =
                     await connection.query(
                         query,
                         [
                             surveyId,
-                            evaluatingDepartmentId,
+                            evaluatorId,
                             targetDepartmentId,
                             status
                         ]
                     );
-
 
                 createdIds.push(
                     result.insertId
                 );
             }
 
+            await connection.commit();
+
+            return createdIds;
+
+        } catch (error) {
+
+            await connection.rollback();
+
+            throw error;
+
+        } finally {
+
+            connection.release();
+
+        }
+    }
+
+
+    // =====================================================
+    // CREATE GENERAL DEPARTMENT BULK MAPPINGS
+    //
+    // survey_id = NULL
+    // =====================================================
+
+    async createDepartmentBulk(
+        fromDepartmentId,
+        toDepartmentIds,
+        status = "active"
+    ) {
+
+        const connection =
+            await pool.getConnection();
+
+        try {
+
+            await connection.beginTransaction();
+
+            const createdIds = [];
+
+            for (
+                const toDepartmentId
+                of toDepartmentIds
+            ) {
+
+                const query = `
+                    INSERT INTO department_mappings
+                    (
+                        survey_id,
+                        from_department_id,
+                        to_department_id,
+                        status
+                    )
+                    VALUES (NULL, ?, ?, ?)
+                `;
+
+                const [result] =
+                    await connection.query(
+                        query,
+                        [
+                            fromDepartmentId,
+                            toDepartmentId,
+                            status
+                        ]
+                    );
+
+                createdIds.push(
+                    result.insertId
+                );
+            }
 
             await connection.commit();
 
@@ -280,7 +336,6 @@ class DepartmentMappingRepository {
             status
         } = mappingData;
 
-
         const query = `
             INSERT INTO department_mappings
             (
@@ -289,24 +344,171 @@ class DepartmentMappingRepository {
                 to_department_id,
                 status
             )
-
             VALUES (?, ?, ?, ?)
         `;
-
 
         const [result] =
             await pool.query(
                 query,
                 [
-                    survey_id,
+                    survey_id || null,
                     from_department_id,
                     to_department_id,
                     status || "active"
                 ]
             );
 
-
         return result.insertId;
+    }
+
+
+    // =====================================================
+    // GET MAPPINGS BY SURVEY
+    //
+    // IMPORTANT:
+    //
+    // mapping_id ASC preserves original order.
+    // Only ACTIVE mappings are returned.
+    // =====================================================
+
+    async findBySurveyId(
+        surveyId
+    ) {
+
+        const query = `
+            SELECT
+                dm.mapping_id,
+                dm.survey_id,
+
+                dm.from_department_id,
+                dm.to_department_id,
+
+                dm.status,
+
+                f.department_code
+                    AS from_department_code,
+
+                f.department_name
+                    AS from_department_name,
+
+                t.department_code
+                    AS to_department_code,
+
+                t.department_name
+                    AS to_department_name
+
+            FROM department_mappings dm
+
+            INNER JOIN departments f
+                ON dm.from_department_id =
+                   f.department_id
+
+            INNER JOIN departments t
+                ON dm.to_department_id =
+                   t.department_id
+
+            WHERE dm.survey_id = ?
+
+              AND dm.status = 'active'
+
+            ORDER BY dm.mapping_id ASC
+        `;
+
+        const [rows] =
+            await pool.query(
+                query,
+                [surveyId]
+            );
+
+        return rows;
+    }
+
+
+    // =====================================================
+    // GET GENERAL MAPPINGS
+    //
+    // survey_id IS NULL
+    // =====================================================
+
+    async findGeneralMappings() {
+
+        const query = `
+            SELECT
+                dm.mapping_id,
+                dm.survey_id,
+                dm.from_department_id,
+                dm.to_department_id,
+                dm.status,
+                dm.created_at,
+                dm.updated_at,
+
+                f.department_name AS from_department_name,
+                f.department_code AS from_department_code,
+
+                t.department_name AS to_department_name,
+                t.department_code AS to_department_code
+
+            FROM department_mappings dm
+
+            INNER JOIN departments f
+                ON dm.from_department_id =
+                   f.department_id
+
+            INNER JOIN departments t
+                ON dm.to_department_id =
+                   t.department_id
+
+            WHERE dm.survey_id IS NULL
+
+            ORDER BY dm.mapping_id ASC
+        `;
+
+        const [rows] =
+            await pool.query(query);
+
+        return rows;
+    }
+
+
+    // =====================================================
+    // GET MAPPED TARGETS FOR HOD
+    // =====================================================
+
+    async findMappedToDepartments(
+        fromDeptId
+    ) {
+
+        const query = `
+            SELECT
+                dm.mapping_id,
+                dm.survey_id,
+                dm.to_department_id,
+
+                d.department_name,
+                d.department_code
+
+            FROM department_mappings dm
+
+            INNER JOIN departments d
+                ON dm.to_department_id =
+                   d.department_id
+
+            WHERE dm.from_department_id = ?
+
+              AND dm.status = 'active'
+
+              AND d.status = 'active'
+
+            ORDER BY dm.mapping_id ASC
+        `;
+
+        const [rows] =
+            await pool.query(
+                query,
+                [fromDeptId]
+            );
+
+        return rows;
     }
 
 
@@ -326,7 +528,6 @@ class DepartmentMappingRepository {
             status
         } = mappingData;
 
-
         const query = `
             UPDATE department_mappings
 
@@ -339,19 +540,92 @@ class DepartmentMappingRepository {
             WHERE mapping_id = ?
         `;
 
+        const [result] =
+            await pool.query(
+                query,
+                [
+                    survey_id || null,
+                    from_department_id,
+                    to_department_id,
+                    status || "active",
+                    mappingId
+                ]
+            );
+
+        return result.affectedRows > 0;
+    }
+
+
+    // =====================================================
+    // GET ACTIVE MAPPINGS BY SURVEY
+    //
+    // Used during EDIT.
+    //
+    // Existing mapping IDs are preserved.
+    // =====================================================
+
+    async findActiveBySurveyId(
+        surveyId
+    ) {
+
+        const query = `
+            SELECT
+                mapping_id,
+                survey_id,
+                from_department_id,
+                to_department_id,
+                status
+
+            FROM department_mappings
+
+            WHERE survey_id = ?
+
+              AND status = 'active'
+
+            ORDER BY mapping_id ASC
+        `;
+
+        const [rows] =
+            await pool.query(
+                query,
+                [surveyId]
+            );
+
+        return rows;
+    }
+
+
+    // =====================================================
+    // UPDATE MAPPING STATUS
+    //
+    // Used when an evaluator is removed during EDIT.
+    //
+    // IMPORTANT:
+    // Record is NOT deleted.
+    // =====================================================
+
+    async updateStatus(
+        mappingId,
+        status
+    ) {
+
+        const query = `
+            UPDATE department_mappings
+
+            SET
+                status = ?
+
+            WHERE mapping_id = ?
+        `;
 
         const [result] =
             await pool.query(
                 query,
                 [
-                    survey_id,
-                    from_department_id,
-                    to_department_id,
                     status,
                     mappingId
                 ]
             );
-
 
         return result.affectedRows > 0;
     }
@@ -359,15 +633,21 @@ class DepartmentMappingRepository {
 
     // =====================================================
     // DELETE SINGLE MAPPING
+    //
+    // Existing DELETE API only.
+    //
+    // NOT used during survey EDIT.
     // =====================================================
 
-    async delete(mappingId) {
+    async delete(
+        mappingId
+    ) {
 
         const query = `
             DELETE FROM department_mappings
+
             WHERE mapping_id = ?
         `;
-
 
         const [result] =
             await pool.query(
@@ -375,194 +655,7 @@ class DepartmentMappingRepository {
                 [mappingId]
             );
 
-
         return result.affectedRows > 0;
-    }
-
-
-    // =====================================================
-    // DELETE ALL MAPPINGS OF A SURVEY
-    //
-    // USED DURING EDIT
-    //
-    // Old:
-    // HR -> IT
-    // QA -> IT
-    //
-    // Edit:
-    // HR -> IT
-    // ACC -> IT
-    //
-    // Old mappings are removed first.
-    // Then new mappings are inserted.
-    // =====================================================
-
-    async deleteBySurveyId(
-        surveyId,
-        connection = pool
-    ) {
-
-        const query = `
-            DELETE FROM department_mappings
-            WHERE survey_id = ?
-        `;
-
-
-        const [result] =
-            await connection.query(
-                query,
-                [surveyId]
-            );
-
-
-        return result.affectedRows;
-    }
-
-
-    // =====================================================
-    // REPLACE SURVEY MAPPINGS
-    //
-    // THIS IS THE MAIN EDIT FUNCTION.
-    //
-    // It deletes old mappings and creates new mappings
-    // in exactly the same order received from frontend.
-    // =====================================================
-
-    async replaceSurveyMappings(
-        surveyId,
-        targetDepartmentId,
-        evaluatingDepartmentIds,
-        status = "active"
-    ) {
-
-        const connection =
-            await pool.getConnection();
-
-        try {
-
-            await connection.beginTransaction();
-
-
-            // -------------------------------------------------
-            // DELETE OLD MAPPINGS
-            // -------------------------------------------------
-
-            await connection.query(
-                `
-                    DELETE FROM department_mappings
-                    WHERE survey_id = ?
-                `,
-                [surveyId]
-            );
-
-
-            // -------------------------------------------------
-            // INSERT NEW MAPPINGS
-            //
-            // IMPORTANT:
-            // Array order is preserved.
-            // -------------------------------------------------
-
-            const createdIds = [];
-
-
-            for (
-                const evaluatingDepartmentId
-                of evaluatingDepartmentIds
-            ) {
-
-                const [result] =
-                    await connection.query(
-                        `
-                            INSERT INTO department_mappings
-                            (
-                                survey_id,
-                                from_department_id,
-                                to_department_id,
-                                status
-                            )
-
-                            VALUES (?, ?, ?, ?)
-                        `,
-                        [
-                            surveyId,
-                            evaluatingDepartmentId,
-                            targetDepartmentId,
-                            status
-                        ]
-                    );
-
-
-                createdIds.push(
-                    result.insertId
-                );
-            }
-
-
-            await connection.commit();
-
-            return createdIds;
-
-        } catch (error) {
-
-            await connection.rollback();
-
-            throw error;
-
-        } finally {
-
-            connection.release();
-
-        }
-    }
-
-
-    // =====================================================
-    // GET TARGET DEPARTMENTS FOR HOD
-    // SURVEY-WISE
-    // =====================================================
-
-    async findMappedToDepartments(
-        surveyId,
-        fromDepartmentId
-    ) {
-
-        const query = `
-            SELECT
-                dm.mapping_id,
-                dm.survey_id,
-
-                dm.to_department_id,
-
-                d.department_name,
-                d.department_code
-
-            FROM department_mappings dm
-
-            INNER JOIN departments d
-                ON dm.to_department_id =
-                   d.department_id
-
-            WHERE dm.survey_id = ?
-              AND dm.from_department_id = ?
-              AND dm.status = 'active'
-              AND d.status = 'active'
-
-            ORDER BY dm.mapping_id ASC
-        `;
-
-
-        const [rows] =
-            await pool.query(
-                query,
-                [
-                    surveyId,
-                    fromDepartmentId
-                ]
-            );
-
-
-        return rows;
     }
 
 }

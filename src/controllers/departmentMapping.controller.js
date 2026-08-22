@@ -6,7 +6,7 @@ const ApiResponse =
 
 
 // =====================================================
-// GET ALL MAPPINGS
+// GET ALL
 // =====================================================
 
 const getAllMappings =
@@ -17,7 +17,6 @@ const getAllMappings =
             const mappings =
                 await departmentMappingService
                     .getAllMappings();
-
 
             res.status(200).json(
                 new ApiResponse(
@@ -30,12 +29,42 @@ const getAllMappings =
         } catch (error) {
 
             next(error);
+
         }
     };
 
 
 // =====================================================
-// GET MAPPING BY ID
+// GET GENERAL MAPPINGS
+// =====================================================
+
+const getGeneralMappings =
+    async (req, res, next) => {
+
+        try {
+
+            const mappings =
+                await departmentMappingService
+                    .getGeneralMappings();
+
+            res.status(200).json(
+                new ApiResponse(
+                    200,
+                    mappings,
+                    "General department mappings fetched successfully"
+                )
+            );
+
+        } catch (error) {
+
+            next(error);
+
+        }
+    };
+
+
+// =====================================================
+// GET BY ID
 // =====================================================
 
 const getMappingById =
@@ -49,7 +78,6 @@ const getMappingById =
                         req.params.id
                     );
 
-
             res.status(200).json(
                 new ApiResponse(
                     200,
@@ -61,12 +89,13 @@ const getMappingById =
         } catch (error) {
 
             next(error);
+
         }
     };
 
 
 // =====================================================
-// CREATE SINGLE MAPPING
+// CREATE SINGLE
 // =====================================================
 
 const createMapping =
@@ -80,7 +109,6 @@ const createMapping =
                         req.body
                     );
 
-
             res.status(201).json(
                 new ApiResponse(
                     201,
@@ -92,12 +120,13 @@ const createMapping =
         } catch (error) {
 
             next(error);
+
         }
     };
 
 
 // =====================================================
-// CREATE BULK MAPPINGS
+// CREATE SURVEY BULK
 // =====================================================
 
 const createBulkMappings =
@@ -106,7 +135,10 @@ const createBulkMappings =
         try {
 
             console.log(
-                "CREATE SURVEY MAPPING:",
+                "🔥 CREATE SURVEY BULK MAPPING:"
+            );
+
+            console.log(
                 req.body
             );
 
@@ -128,44 +160,59 @@ const createBulkMappings =
 
         } catch (error) {
 
+            console.error(
+                "❌ CREATE SURVEY BULK MAPPING ERROR:",
+                error
+            );
+
             next(error);
+
         }
     };
 
 
 // =====================================================
-// UPDATE / REPLACE SURVEY MAPPINGS
+// CREATE GENERAL DEPARTMENT BULK
 // =====================================================
 
-const updateSurveyMappings =
+const createDepartmentBulkMappings =
     async (req, res, next) => {
 
         try {
 
             console.log(
-                "UPDATE SURVEY MAPPINGS:",
+                "🔥 CREATE DEPARTMENT BULK MAPPING:"
+            );
+
+            console.log(
                 req.body
             );
 
 
             const mappings =
                 await departmentMappingService
-                    .updateSurveyMappings(
+                    .createDepartmentBulkMappings(
                         req.body
                     );
 
 
-            res.status(200).json(
+            res.status(201).json(
                 new ApiResponse(
-                    200,
+                    201,
                     mappings,
-                    "Survey department mappings updated successfully"
+                    "Department mappings created successfully"
                 )
             );
 
         } catch (error) {
 
+            console.error(
+                "❌ CREATE DEPARTMENT BULK MAPPING ERROR:",
+                error
+            );
+
             next(error);
+
         }
     };
 
@@ -197,12 +244,58 @@ const getMappingsBySurveyId =
         } catch (error) {
 
             next(error);
+
         }
     };
 
 
 // =====================================================
-// UPDATE SINGLE MAPPING
+// UPDATE ALL SURVEY MAPPINGS
+// =====================================================
+
+const updateSurveyMappings =
+    async (req, res, next) => {
+
+        try {
+
+            const {
+                target_department_id,
+                evaluating_department_ids,
+                status
+            } = req.body;
+
+
+            const mappings =
+                await departmentMappingService
+                    .updateSurveyMappings(
+                        req.params.surveyId,
+
+                        target_department_id,
+
+                        evaluating_department_ids,
+
+                        status || "active"
+                    );
+
+
+            res.status(200).json(
+                new ApiResponse(
+                    200,
+                    mappings,
+                    "Survey mappings updated successfully"
+                )
+            );
+
+        } catch (error) {
+
+            next(error);
+
+        }
+    };
+
+
+// =====================================================
+// UPDATE SINGLE
 // =====================================================
 
 const updateMapping =
@@ -217,7 +310,6 @@ const updateMapping =
                         req.body
                     );
 
-
             res.status(200).json(
                 new ApiResponse(
                     200,
@@ -229,12 +321,13 @@ const updateMapping =
         } catch (error) {
 
             next(error);
+
         }
     };
 
 
 // =====================================================
-// DELETE MAPPING
+// DELETE
 // =====================================================
 
 const deleteMapping =
@@ -259,21 +352,19 @@ const deleteMapping =
         } catch (error) {
 
             next(error);
+
         }
     };
 
 
 // =====================================================
-// HOD - MY TARGETS
+// HOD TARGETS
 // =====================================================
 
 const getMyEvaluationTargets =
     async (req, res, next) => {
 
         try {
-
-            const surveyId =
-                req.query.survey_id;
 
             const fromDeptId =
                 req.user.department_id;
@@ -282,7 +373,6 @@ const getMyEvaluationTargets =
             const targets =
                 await departmentMappingService
                     .getMappedToDepartments(
-                        surveyId,
                         fromDeptId
                     );
 
@@ -298,6 +388,7 @@ const getMyEvaluationTargets =
         } catch (error) {
 
             next(error);
+
         }
     };
 
@@ -306,15 +397,19 @@ module.exports = {
 
     getAllMappings,
 
+    getGeneralMappings,
+
     getMappingById,
 
     createMapping,
 
     createBulkMappings,
 
-    updateSurveyMappings,
+    createDepartmentBulkMappings,
 
     getMappingsBySurveyId,
+
+    updateSurveyMappings,
 
     updateMapping,
 

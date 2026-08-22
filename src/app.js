@@ -14,12 +14,66 @@ const app = express();
 
 
 // =====================================================
-// GLOBAL MIDDLEWARES
+// CORS CONFIGURATION
 // =====================================================
 
-app.use(cors());
+const corsOptions = {
 
-app.use(express.json());
+    origin: [
+        "http://localhost:4200"
+    ],
+
+    methods: [
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "OPTIONS"
+    ],
+
+    allowedHeaders: [
+        "Origin",
+        "X-Requested-With",
+        "Content-Type",
+        "Accept",
+        "Authorization"
+    ],
+
+    exposedHeaders: [
+        "Authorization"
+    ],
+
+    credentials: true,
+
+    optionsSuccessStatus: 204
+
+};
+
+
+// =====================================================
+// GLOBAL CORS MIDDLEWARE
+// =====================================================
+
+// IMPORTANT:
+// Do NOT add app.options("*", ...)
+// Express 5 does not accept "*" like that.
+//
+// cors() middleware itself handles OPTIONS
+// preflight requests.
+
+app.use(
+    cors(corsOptions)
+);
+
+
+// =====================================================
+// BODY PARSERS
+// =====================================================
+
+app.use(
+    express.json()
+);
 
 app.use(
     express.urlencoded({
@@ -29,7 +83,7 @@ app.use(
 
 
 // =====================================================
-// 🔥 GLOBAL REQUEST DEBUG
+// GLOBAL REQUEST DEBUG
 // =====================================================
 
 app.use((req, res, next) => {
@@ -39,6 +93,11 @@ app.use((req, res, next) => {
     console.log("🔥 INCOMING REQUEST");
     console.log("METHOD:", req.method);
     console.log("URL:", req.originalUrl);
+
+    console.log(
+        "ORIGIN:",
+        req.headers.origin || "NO ORIGIN"
+    );
 
     console.log(
         "AUTHORIZATION:",
@@ -117,7 +176,9 @@ app.use(
 // ERROR MIDDLEWARE
 // =====================================================
 
-app.use(errorMiddleware);
+app.use(
+    errorMiddleware
+);
 
 
 module.exports = app;
