@@ -1368,18 +1368,56 @@ class DepartmentMappingService {
     // HOD - MY TARGET DEPARTMENTS
     // =====================================================
 
-    async getMappedToDepartments(
-        fromDeptId
+   // =====================================================
+// HOD - MY TARGET DEPARTMENTS FOR SURVEY
+// =====================================================
+
+async getMappedToDepartments(
+    fromDeptId,
+    surveyId
+) {
+
+    const fromDepartmentId =
+        Number(fromDeptId);
+
+    const surveyIdNumber =
+        Number(surveyId);
+
+
+    if (
+        !Number.isInteger(fromDepartmentId) ||
+        fromDepartmentId <= 0
     ) {
 
-        return await departmentMappingRepository
-            .findMappedToDepartments(
-                fromDeptId
-            );
+        throw new ApiError(
+            400,
+            "Invalid evaluating department ID"
+        );
+
     }
+
+
+    if (
+        !Number.isInteger(surveyIdNumber) ||
+        surveyIdNumber <= 0
+    ) {
+
+        throw new ApiError(
+            400,
+            "Invalid survey ID"
+        );
+
+    }
+
+
+    return await departmentMappingRepository
+        .findMappedToDepartments(
+            fromDepartmentId,
+            surveyIdNumber
+        );
 
 }
 
-
+}
 module.exports =
     new DepartmentMappingService();

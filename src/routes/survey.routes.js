@@ -63,7 +63,8 @@ router.get(
     "/",
     roleMiddleware([
         ROLES.ADMIN,
-         ROLES.HR
+         ROLES.HR,
+         ROLES.HOD
     ]),
     surveyController.getAllSurveys
 );
@@ -72,7 +73,8 @@ router.get(
 router.get(
     "/:id",
     roleMiddleware([
-        ROLES.ADMIN
+        ROLES.ADMIN,
+        ROLES.HOD
     ]),
     surveyController.getSurveyById
 );
@@ -81,7 +83,8 @@ router.get(
 router.post(
     "/",
     roleMiddleware([
-        ROLES.ADMIN
+        ROLES.ADMIN,
+        ROLES.HOD
     ]),
     surveyController.createSurvey
 );
@@ -90,7 +93,8 @@ router.post(
 router.put(
     "/:id",
     roleMiddleware([
-        ROLES.ADMIN
+        ROLES.ADMIN,
+        ROLES.HOD
     ]),
     surveyController.updateSurvey
 );

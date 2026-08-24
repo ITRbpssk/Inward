@@ -474,39 +474,51 @@ class DepartmentMappingRepository {
     // GET MAPPED TARGETS FOR HOD
     // =====================================================
 
+    // =====================================================
+    // GET MAPPED TARGETS FOR HOD - SURVEY WISE
+    // =====================================================
+
     async findMappedToDepartments(
-        fromDeptId
+        fromDeptId,
+        surveyId
     ) {
 
         const query = `
-            SELECT
-                dm.mapping_id,
-                dm.survey_id,
-                dm.to_department_id,
+        SELECT
+            dm.mapping_id,
+            dm.survey_id,
+            dm.to_department_id,
 
-                d.department_name,
-                d.department_code
+            d.department_name,
+            d.department_code
 
-            FROM department_mappings dm
+        FROM department_mappings dm
 
-            INNER JOIN departments d
-                ON dm.to_department_id =
-                   d.department_id
+        INNER JOIN departments d
+            ON dm.to_department_id =
+               d.department_id
 
-            WHERE dm.from_department_id = ?
+        WHERE dm.from_department_id = ?
 
-              AND dm.status = 'active'
+          AND dm.survey_id = ?
 
-              AND d.status = 'active'
+          AND dm.status = 'active'
 
-            ORDER BY dm.mapping_id ASC
-        `;
+          AND d.status = 'active'
+
+        ORDER BY dm.mapping_id ASC
+    `;
+
 
         const [rows] =
             await pool.query(
                 query,
-                [fromDeptId]
+                [
+                    fromDeptId,
+                    surveyId
+                ]
             );
+
 
         return rows;
     }

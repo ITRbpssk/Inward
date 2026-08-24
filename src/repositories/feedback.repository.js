@@ -47,22 +47,64 @@ class FeedbackRepository {
      * Get review status for all target departments mapped from a specific department for a survey.
      * Tells whether feedback is submitted, in draft, or not started.
      */
-    async getFeedbackSubmissionStatus(surveyId, fromDeptId) {
-        const query = `
-            SELECT dm.mapping_id, dm.to_department_id,
-                   d.department_name AS to_department_name, d.department_code AS to_department_code,
-                   f.feedback_id, f.status AS feedback_status, f.submitted_on, f.overall_comment
-            FROM department_mappings dm
-            JOIN departments d ON dm.to_department_id = d.department_id
-            LEFT JOIN feedbacks f ON f.survey_id = ? 
-                                 AND f.from_department_id = dm.from_department_id 
-                                 AND f.to_department_id = dm.to_department_id
-            WHERE dm.from_department_id = ? AND dm.status = 'active'
-            ORDER BY d.department_name ASC
-        `;
-        const [rows] = await pool.query(query, [surveyId, fromDeptId]);
-        return rows;
-    }
+    // =====================================================
+// GET FEEDBACK SUBMISSION STATUS
+// SURVEY + EVALUATING DEPARTMENT WISE
+// =====================================================
+
+async getFeedbackSubmissionStatus(
+    surveyId,
+    fromDeptId
+) {
+
+    const query = `
+        SELECT
+            dm.mapping_id,
+            dm.to_department_id,
+
+            d.department_name AS to_department_name,
+            d.department_code AS to_department_code,
+
+            f.feedback_id,
+            f.status AS feedback_status,
+            f.submitted_on,
+            f.overall_comment
+
+        FROM department_mappings dm
+
+        JOIN departments d
+            ON dm.to_department_id =
+               d.department_id
+
+        LEFT JOIN feedbacks f
+            ON f.survey_id = ?
+           AND f.from_department_id =
+               dm.from_department_id
+           AND f.to_department_id =
+               dm.to_department_id
+
+        WHERE dm.survey_id = ?
+          AND dm.from_department_id = ?
+          AND dm.status = 'active'
+
+        ORDER BY
+            d.department_name ASC
+    `;
+
+
+    const [rows] =
+        await pool.query(
+            query,
+            [
+                surveyId,
+                surveyId,
+                fromDeptId
+            ]
+        );
+
+
+    return rows;
+}
 
     async create(feedbackData) {
         const { survey_id, from_department_id, to_department_id, submitted_by, overall_comment, status } = feedbackData;

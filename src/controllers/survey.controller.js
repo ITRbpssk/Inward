@@ -16,8 +16,10 @@ const getAllSurveys =
 
             const surveys =
                 await surveyService
-                    .getAllSurveys();
-
+                    .getAllSurveys(
+                        req.user.user_id,
+                        req.user.role_name
+                    );
 
             res.status(200).json(
 
@@ -207,7 +209,8 @@ const createSurvey =
             const survey =
                 await surveyService
                     .createSurvey(
-                        req.body
+                        req.body,
+                        req.user.user_id
                     );
 
 

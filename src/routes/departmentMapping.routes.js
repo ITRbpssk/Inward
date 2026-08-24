@@ -34,7 +34,8 @@ router.get(
     "/my-targets",
 
     roleMiddleware([
-        ROLES.HOD
+        ROLES.HOD,
+        ROLES.HR
     ]),
 
     departmentMappingController
@@ -120,7 +121,8 @@ router.get(
     "/survey/:surveyId",
 
     roleMiddleware([
-        ROLES.ADMIN
+        ROLES.ADMIN,
+         ROLES.HOD
     ]),
 
     departmentMappingController
@@ -138,7 +140,8 @@ router.put(
     "/survey/:surveyId",
 
     roleMiddleware([
-        ROLES.ADMIN
+        ROLES.ADMIN,
+         ROLES.HOD
     ]),
 
     departmentMappingController

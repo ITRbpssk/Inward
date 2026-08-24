@@ -20,6 +20,24 @@ class SurveyRepository {
     }
 
 
+
+    async findByCreatedBy(userId) {
+
+    const [rows] =
+        await pool.query(
+            `
+            SELECT *
+            FROM surveys
+            WHERE created_by = ?
+            ORDER BY survey_id DESC
+            `,
+            [userId]
+        );
+
+    return rows;
+
+}
+
     // =====================================================
     // GET SURVEYS BY TARGET DEPARTMENT
     //
@@ -262,162 +280,155 @@ class SurveyRepository {
     //
     // Everything happens inside ONE transaction.
     // =====================================================
+async createSurveyWithDepartments(surveyData) {
 
-    async createSurveyWithDepartments(surveyData) {
-
-        const {
-            survey_name,
-            start_date,
-            end_date,
-            status,
-            target_department_id,
-            evaluating_department_ids
-        } = surveyData;
-
-
-        const connection =
-            await pool.getConnection();
+    const {
+        survey_name,
+        start_date,
+        end_date,
+        status,
+        created_by,
+        target_department_id,
+        evaluating_department_ids
+    } = surveyData;
 
 
-        try {
-
-            // =================================================
-            // START TRANSACTION
-            // =================================================
-
-            await connection.beginTransaction();
+    const connection =
+        await pool.getConnection();
 
 
-            // =================================================
-            // 1. CREATE SURVEY
-            // =================================================
+    try {
 
-            const surveyQuery = `
-                INSERT INTO surveys
-                (
+        // =================================================
+        // START TRANSACTION
+        // =================================================
+
+        await connection.beginTransaction();
+
+
+        // =================================================
+        // 1. CREATE SURVEY
+        // =================================================
+
+        const surveyQuery = `
+            INSERT INTO surveys
+            (
+                survey_name,
+                start_date,
+                end_date,
+                status,
+                created_by
+            )
+            VALUES (?, ?, ?, ?, ?)
+        `;
+
+
+        const [surveyResult] =
+            await connection.query(
+                surveyQuery,
+                [
                     survey_name,
                     start_date,
                     end_date,
-                    status
-                )
-                VALUES (?, ?, ?, ?)
-            `;
-
-            const [surveyResult] =
-                await connection.query(
-                    surveyQuery,
-                    [
-                        survey_name,
-                        start_date,
-                        end_date,
-                        status || "draft"
-                    ]
-                );
-
-
-            const surveyId =
-                surveyResult.insertId;
-
-
-            // =================================================
-            // 2. SAVE TARGET DEPARTMENT
-            //
-            // Example:
-            //
-            // Survey 5 → IT
-            // =================================================
-
-            const targetDepartmentQuery = `
-                INSERT INTO survey_departments
-                (
-                    survey_id,
-                    department_id
-                )
-                VALUES (?, ?)
-            `;
-
-            await connection.query(
-                targetDepartmentQuery,
-                [
-                    surveyId,
-                    target_department_id
+                    status || "draft",
+                    created_by
                 ]
             );
 
 
-            // =================================================
-            // 3. SAVE EVALUATING DEPARTMENTS
-            //
-            // Example:
-            //
-            // HR  → IT
-            // QA  → IT
-            // ACC → IT
-            // =================================================
-
-            const mappingQuery = `
-                INSERT INTO department_mappings
-                (
-                    survey_id,
-                    from_department_id,
-                    to_department_id,
-                    status
-                )
-                VALUES (?, ?, ?, ?)
-            `;
+        const surveyId =
+            surveyResult.insertId;
 
 
-            for (
-                const evaluatingDepartmentId
-                of evaluating_department_ids
-            ) {
+        // =================================================
+        // 2. SAVE TARGET DEPARTMENT
+        // =================================================
 
-                await connection.query(
-                    mappingQuery,
-                    [
-                        surveyId,
-                        evaluatingDepartmentId,
-                        target_department_id,
-                        "active"
-                    ]
-                );
-
-            }
+        const targetDepartmentQuery = `
+            INSERT INTO survey_departments
+            (
+                survey_id,
+                department_id
+            )
+            VALUES (?, ?)
+        `;
 
 
-            // =================================================
-            // COMMIT TRANSACTION
-            // =================================================
-
-            await connection.commit();
-
-
-            return surveyId;
-
-
-        } catch (error) {
-
-            // =================================================
-            // ROLLBACK
-            // =================================================
-
-            await connection.rollback();
-
-            throw error;
+        await connection.query(
+            targetDepartmentQuery,
+            [
+                surveyId,
+                target_department_id
+            ]
+        );
 
 
-        } finally {
+        // =================================================
+        // 3. SAVE EVALUATING DEPARTMENTS
+        // =================================================
 
-            // =================================================
-            // RELEASE CONNECTION
-            // =================================================
+        const mappingQuery = `
+            INSERT INTO department_mappings
+            (
+                survey_id,
+                from_department_id,
+                to_department_id,
+                status
+            )
+            VALUES (?, ?, ?, ?)
+        `;
 
-            connection.release();
+
+        for (
+            const evaluatingDepartmentId
+            of evaluating_department_ids
+        ) {
+
+            await connection.query(
+                mappingQuery,
+                [
+                    surveyId,
+                    evaluatingDepartmentId,
+                    target_department_id,
+                    "active"
+                ]
+            );
 
         }
 
+
+        // =================================================
+        // COMMIT TRANSACTION
+        // =================================================
+
+        await connection.commit();
+
+
+        return surveyId;
+
+
+    } catch (error) {
+
+        // =================================================
+        // ROLLBACK
+        // =================================================
+
+        await connection.rollback();
+
+        throw error;
+
+
+    } finally {
+
+        // =================================================
+        // RELEASE CONNECTION
+        // =================================================
+
+        connection.release();
+
     }
 
+}
 
     // =====================================================
     // UPDATE SURVEY

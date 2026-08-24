@@ -14,12 +14,32 @@ class SurveyService {
     // =====================================================
     // GET ALL SURVEYS
     // =====================================================
+async getAllSurveys(
+    userId,
+    roleName
+) {
 
-    async getAllSurveys() {
+    if (
+        roleName === "ADMIN" ||
+        roleName === "HR"
+    ) {
 
         return await surveyRepository.findAll();
 
     }
+
+
+    if (roleName === "HOD") {
+
+        return await surveyRepository
+            .findByCreatedBy(userId);
+
+    }
+
+
+    return [];
+
+}
 
 
     // =====================================================
@@ -157,7 +177,8 @@ class SurveyService {
     // =====================================================
 
     async createSurvey(
-        surveyData
+        surveyData,
+        created_by
     ) {
 
         let {
@@ -375,27 +396,29 @@ class SurveyService {
         // CREATE EVERYTHING IN ONE TRANSACTION
         // =================================================
 
-        const newId =
-            await surveyRepository
-                .createSurveyWithDepartments({
+      const newId =
+    await surveyRepository
+        .createSurveyWithDepartments({
 
-                    survey_name,
+            survey_name,
 
-                    start_date,
+            start_date,
 
-                    end_date,
+            end_date,
 
-                    status:
-                        status || "draft",
+            status:
+                status || "draft",
 
-                    target_department_id:
-                        targetDepartmentId,
+            created_by:
+                created_by,
 
-                    evaluating_department_ids:
-                        uniqueEvaluatorIds
+            target_department_id:
+                targetDepartmentId,
 
-                });
+            evaluating_department_ids:
+                uniqueEvaluatorIds
 
+        });
 
         // =================================================
         // RETURN CREATED SURVEY

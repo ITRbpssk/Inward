@@ -51,7 +51,8 @@ router.use(authMiddleware);
 router.post(
     "/",
     roleMiddleware([
-        ROLES.HOD
+        ROLES.HOD,
+        ROLES.HR
     ]),
     feedbackController.submitOrSaveFeedback
 );
@@ -64,7 +65,8 @@ router.post(
 router.get(
     "/status",
     roleMiddleware([
-        ROLES.HOD
+        ROLES.HOD,
+        ROLES.HR
     ]),
     feedbackController.getFeedbackStatusForHOD
 );
@@ -77,7 +79,8 @@ router.get(
 router.get(
     "/details",
     roleMiddleware([
-        ROLES.HOD
+        ROLES.HOD,
+        ROLES.HR
     ]),
     feedbackController.getFeedbackDetails
 );

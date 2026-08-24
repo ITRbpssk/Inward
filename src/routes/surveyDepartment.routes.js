@@ -23,7 +23,7 @@ router.use(authMiddleware);
 // Get eligible departments for a survey
 router.get(
     "/:surveyId",
-    roleMiddleware([ROLES.ADMIN]),
+    roleMiddleware([ROLES.ADMIN,ROLES.HOD]),
     surveyDepartmentController.getDepartmentsBySurvey
 );
 
@@ -31,7 +31,7 @@ router.get(
 // Save / Update eligible departments for a survey
 router.put(
     "/:surveyId",
-    roleMiddleware([ROLES.ADMIN]),
+    roleMiddleware([ROLES.ADMIN,ROLES.HOD]),
     surveyDepartmentController.updateSurveyDepartments
 );
 

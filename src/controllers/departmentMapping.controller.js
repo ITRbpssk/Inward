@@ -360,6 +360,9 @@ const deleteMapping =
 // =====================================================
 // HOD TARGETS
 // =====================================================
+// =====================================================
+// HOD TARGETS - SURVEY WISE
+// =====================================================
 
 const getMyEvaluationTargets =
     async (req, res, next) => {
@@ -370,10 +373,15 @@ const getMyEvaluationTargets =
                 req.user.department_id;
 
 
+            const surveyId =
+                req.query.survey_id;
+
+
             const targets =
                 await departmentMappingService
                     .getMappedToDepartments(
-                        fromDeptId
+                        fromDeptId,
+                        surveyId
                     );
 
 

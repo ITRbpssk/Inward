@@ -20,7 +20,8 @@ const app = express();
 const corsOptions = {
 
     origin: [
-        "http://localhost:4200"
+        "http://localhost:4200",
+        "http://192.168.1.91:8074"
     ],
 
     methods: [

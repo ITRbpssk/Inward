@@ -13,7 +13,7 @@ router.put("/:id", roleMiddleware([ROLES.ADMIN]), parameterController.updatePara
 router.delete("/:id", roleMiddleware([ROLES.ADMIN]), parameterController.deleteParameter);
 
 // HOD & Admin can view parameters
-router.get("/", roleMiddleware([ROLES.ADMIN, ROLES.HOD]), parameterController.getAllParameters);
-router.get("/:id", roleMiddleware([ROLES.ADMIN, ROLES.HOD]), parameterController.getParameterById);
+router.get("/", roleMiddleware([ROLES.ADMIN, ROLES.HOD,ROLES.HR]), parameterController.getAllParameters);
+router.get("/:id", roleMiddleware([ROLES.ADMIN, ROLES.HOD,ROLES.HR]), parameterController.getParameterById);
 
 module.exports = router;

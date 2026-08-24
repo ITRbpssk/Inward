@@ -573,11 +573,10 @@ class FeedbackService {
         const mapping =
             await departmentMappingRepository
                 .findByFromAndTo(
-                    from_department_id,
-                    to_department_id
+                    Number(survey_id),
+                    Number(from_department_id),
+                    Number(to_department_id)
                 );
-
-
         if (
             !mapping ||
             mapping.status !== "active"
