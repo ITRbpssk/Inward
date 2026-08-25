@@ -158,6 +158,92 @@ async getFeedbackSubmissionStatus(
         const [result] = await pool.query(query, [feedbackId]);
         return result.affectedRows > 0;
     }
+
+
+
+
+
+
+
+
+    // =====================================================
+// HOD - FEEDBACK STATUS FOR OWN CREATED SURVEY
+//
+// Creator = IT
+// Evaluator = HR
+//
+// HR -> IT feedback
+// IT HOD should see HR feedback status
+// =====================================================
+
+async getFeedbackSubmissionStatusForCreator(
+    surveyId,
+    targetDepartmentId
+) {
+
+    const query = `
+        SELECT
+            dm.mapping_id,
+
+            dm.from_department_id
+                AS evaluator_department_id,
+
+            dm.to_department_id
+                AS target_department_id,
+
+            evaluator.department_name
+                AS evaluator_department_name,
+
+            evaluator.department_code
+                AS evaluator_department_code,
+
+            target.department_name
+                AS target_department_name,
+
+            target.department_code
+                AS target_department_code,
+
+            f.feedback_id,
+            f.status AS feedback_status,
+            f.submitted_on,
+            f.overall_comment
+
+        FROM department_mappings dm
+
+        JOIN departments evaluator
+            ON dm.from_department_id =
+               evaluator.department_id
+
+        JOIN departments target
+            ON dm.to_department_id =
+               target.department_id
+
+        LEFT JOIN feedbacks f
+            ON f.survey_id = dm.survey_id
+           AND f.from_department_id =
+               dm.from_department_id
+           AND f.to_department_id =
+               dm.to_department_id
+
+        WHERE dm.survey_id = ?
+          AND dm.to_department_id = ?
+          AND dm.status = 'active'
+
+        ORDER BY
+            evaluator.department_name ASC
+    `;
+
+    const [rows] =
+        await pool.query(
+            query,
+            [
+                surveyId,
+                targetDepartmentId
+            ]
+        );
+
+    return rows;
+}
 }
 
 module.exports = new FeedbackRepository();

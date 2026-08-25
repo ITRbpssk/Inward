@@ -50,10 +50,11 @@ router.use(authMiddleware);
 
 router.post(
     "/",
+
     roleMiddleware([
-        ROLES.HOD,
-        ROLES.HR
+        ROLES.HOD
     ]),
+
     feedbackController.submitOrSaveFeedback
 );
 
@@ -64,11 +65,27 @@ router.post(
 
 router.get(
     "/status",
+
     roleMiddleware([
-        ROLES.HOD,
-        ROLES.HR
+        ROLES.HOD
     ]),
+
     feedbackController.getFeedbackStatusForHOD
+);
+
+
+// =====================================================
+// HOD - CREATOR FEEDBACK STATUS
+// =====================================================
+
+router.get(
+    "/creator-status",
+
+    roleMiddleware([
+        ROLES.HOD
+    ]),
+
+    feedbackController.getCreatorFeedbackStatus
 );
 
 
@@ -78,25 +95,20 @@ router.get(
 
 router.get(
     "/details",
+
     roleMiddleware([
-        ROLES.HOD,
-        ROLES.HR
+        ROLES.HOD
     ]),
+
     feedbackController.getFeedbackDetails
 );
 
 
 // =====================================================
-// HR + ADMIN - VIEW DEPARTMENT EVALUATIONS
-// =====================================================
-//
-// Used by:
-//
-// HR Panel
-// Admin Dashboard
+// ADMIN - DEPARTMENT EVALUATION STATUS
 //
 // GET:
-// /feedbacks/hr-status
+// /feedbacks/admin-status
 //
 // Query:
 // survey_id
@@ -107,76 +119,94 @@ router.get(
 // Submitted
 // Draft
 // Pending
-//
 // =====================================================
-router.get(
-    "/hr-status",
 
-    // DEBUG
+router.get(
+    "/admin-status",
+
     (req, res, next) => {
 
         console.log("");
-        console.log("🔥🔥🔥 HR-STATUS ROUTE HIT 🔥🔥🔥");
-        console.log("URL:", req.originalUrl);
+        console.log(
+            "🔥🔥🔥 ADMIN FEEDBACK STATUS ROUTE HIT 🔥🔥🔥"
+        );
+
+        console.log(
+            "URL:",
+            req.originalUrl
+        );
+
         console.log(
             "AUTH HEADER EXISTS:",
             !!req.headers.authorization
         );
+
         console.log(
             "AUTH HEADER:",
             req.headers.authorization
                 ? "Bearer token present"
                 : "NO TOKEN"
         );
-        console.log("USER BEFORE ROLE:", req.user);
-        console.log("🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥");
+
+        console.log(
+            "USER:",
+            req.user
+        );
+
+        console.log(
+            "🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥"
+        );
 
         next();
+
     },
 
     roleMiddleware([
-        ROLES.HR,
         ROLES.ADMIN
     ]),
 
-    feedbackController.getFeedbackStatusForHR
+    feedbackController.getFeedbackStatusForAdmin
 );
+
+
 // =====================================================
-// HR + ADMIN - VIEW FEEDBACK DETAILS
-// =====================================================
+// ADMIN - FEEDBACK DETAILS
 //
 // GET:
-// /feedbacks/hr-details
+// /feedbacks/admin-details
 //
 // Query:
 // survey_id
 // from_department_id
 // to_department_id
-//
 // =====================================================
 
 router.get(
-    "/hr-details",
+    "/admin-details",
+
     roleMiddleware([
-        ROLES.HR,
         ROLES.ADMIN
     ]),
-    feedbackController.getFeedbackDetailsForHR
+
+    feedbackController.getFeedbackDetailsForAdmin
 );
 
 
 // =====================================================
 // ADMIN + HOD - GET FEEDBACK BY ID
+//
 // IMPORTANT:
-// THIS MUST BE LAST
+// THIS MUST ALWAYS BE LAST
 // =====================================================
 
 router.get(
     "/:id",
+
     roleMiddleware([
         ROLES.ADMIN,
         ROLES.HOD
     ]),
+
     feedbackController.getFeedbackById
 );
 

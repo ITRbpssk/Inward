@@ -34,8 +34,7 @@ router.get(
     "/my-targets",
 
     roleMiddleware([
-        ROLES.HOD,
-        ROLES.HR
+        ROLES.HOD
     ]),
 
     departmentMappingController
@@ -112,7 +111,7 @@ router.post(
 
 
 // =====================================================
-// ADMIN - GET MAPPINGS BY SURVEY
+// ADMIN + HOD - GET MAPPINGS BY SURVEY
 //
 // MUST COME BEFORE /:id
 // =====================================================
@@ -122,7 +121,7 @@ router.get(
 
     roleMiddleware([
         ROLES.ADMIN,
-         ROLES.HOD
+        ROLES.HOD
     ]),
 
     departmentMappingController
@@ -131,7 +130,7 @@ router.get(
 
 
 // =====================================================
-// ADMIN - UPDATE ALL SURVEY MAPPINGS
+// ADMIN + HOD - UPDATE ALL SURVEY MAPPINGS
 //
 // USED BY EDIT SURVEY
 // =====================================================
@@ -141,7 +140,7 @@ router.put(
 
     roleMiddleware([
         ROLES.ADMIN,
-         ROLES.HOD
+        ROLES.HOD
     ]),
 
     departmentMappingController

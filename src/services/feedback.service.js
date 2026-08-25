@@ -26,49 +26,16 @@ class FeedbackService {
 
     calculateUSI(ratings, activeParams) {
 
-        // -------------------------------------------------
-        // IMPORTANCE
-        // Every parameter has fixed importance = 5
-        // -------------------------------------------------
-
         const IMPORTANCE = 5;
-
-
-        // -------------------------------------------------
-        // MAXIMUM RATING
-        // Rating is from 1 to 5
-        // -------------------------------------------------
-
         const MAX_RATING = 5;
-
-
-        // -------------------------------------------------
-        // MAXIMUM SCORE PER PARAMETER
-        // -------------------------------------------------
 
         const maximumScorePerParameter =
             IMPORTANCE * MAX_RATING;
-
-
-        // -------------------------------------------------
-        // MAXIMUM TOTAL SCORE
-        //
-        // 6 parameters × 25
-        // = 150
-        //
-        // Using activeParams.length keeps it dynamic.
-        // With your current 6 parameters:
-        // 6 × 25 = 150
-        // -------------------------------------------------
 
         const maximumTotalScore =
             maximumScorePerParameter *
             activeParams.length;
 
-
-        // -------------------------------------------------
-        // CALCULATE EACH PARAMETER SCORE
-        // -------------------------------------------------
 
         const calculatedRatings =
             ratings.map(item => {
@@ -76,10 +43,8 @@ class FeedbackService {
                 const rating =
                     parseInt(item.rating);
 
-
                 const score =
                     IMPORTANCE * rating;
-
 
                 return {
 
@@ -96,10 +61,6 @@ class FeedbackService {
             });
 
 
-        // -------------------------------------------------
-        // TOTAL SCORE
-        // -------------------------------------------------
-
         const totalScore =
             calculatedRatings.reduce(
                 (sum, item) =>
@@ -107,10 +68,6 @@ class FeedbackService {
                 0
             );
 
-
-        // -------------------------------------------------
-        // USI PERCENTAGE
-        // -------------------------------------------------
 
         const usiPercentage =
             maximumTotalScore > 0
@@ -141,9 +98,24 @@ class FeedbackService {
 
     // =====================================================
     // GET FEEDBACK BY ID
+    //
+    // ADMIN:
+    // Can view feedback.
+    //
+    // HOD:
+    // Can view when:
+    //
+    // 1. HOD created the survey
+    // 2. HOD submitted the feedback
+    // 3. HOD belongs to evaluator department and
+    //    active mapping exists
     // =====================================================
 
-    async getFeedbackById(feedbackId) {
+    async getFeedbackById(
+        feedbackId,
+        userId,
+        roleName
+    ) {
 
         const feedback =
             await feedbackRepository
@@ -160,6 +132,156 @@ class FeedbackService {
         }
 
 
+        // =================================================
+        // HOD AUTHORIZATION
+        // =================================================
+
+        if (
+            String(roleName || "").toUpperCase() === "HOD"
+        ) {
+
+            const survey =
+                await surveyRepository
+                    .findById(
+                        feedback.survey_id
+                    );
+
+
+            if (!survey) {
+
+                throw new ApiError(
+                    404,
+                    "Survey not found"
+                );
+
+            }
+
+
+            // ---------------------------------------------
+            // CASE 1:
+            // Survey creator
+            // ---------------------------------------------
+
+            const isCreator =
+                Number(survey.created_by) ===
+                Number(userId);
+
+
+            // ---------------------------------------------
+            // CASE 2:
+            // Feedback submitter
+            // ---------------------------------------------
+
+            const isSubmitter =
+                Number(feedback.submitted_by) ===
+                Number(userId);
+
+
+            // ---------------------------------------------
+            // CASE 3:
+            // Active evaluator mapping
+            // ---------------------------------------------
+
+            let hasActiveMapping = false;
+
+
+            const mapping =
+                await departmentMappingRepository
+                    .findByFromAndTo(
+                        Number(feedback.survey_id),
+                        Number(feedback.from_department_id),
+                        Number(feedback.to_department_id)
+                    );
+
+
+            if (
+                mapping &&
+                mapping.status === "active"
+            ) {
+
+                hasActiveMapping = true;
+
+            }
+
+
+            console.log(
+                "========================================"
+            );
+
+            console.log(
+                "🔥 FEEDBACK VIEW AUTHORIZATION"
+            );
+
+            console.log(
+                "USER ID:",
+                userId
+            );
+
+            console.log(
+                "FEEDBACK ID:",
+                feedback.feedback_id
+            );
+
+            console.log(
+                "SURVEY ID:",
+                feedback.survey_id
+            );
+
+            console.log(
+                "FEEDBACK FROM DEPARTMENT:",
+                feedback.from_department_id
+            );
+
+            console.log(
+                "FEEDBACK TO DEPARTMENT:",
+                feedback.to_department_id
+            );
+
+            console.log(
+                "FEEDBACK SUBMITTED BY:",
+                feedback.submitted_by
+            );
+
+            console.log(
+                "IS CREATOR:",
+                isCreator
+            );
+
+            console.log(
+                "IS SUBMITTER:",
+                isSubmitter
+            );
+
+            console.log(
+                "HAS ACTIVE MAPPING:",
+                hasActiveMapping
+            );
+
+            console.log(
+                "========================================"
+            );
+
+
+            if (
+                !isCreator &&
+                !isSubmitter &&
+                !hasActiveMapping
+            ) {
+
+                throw new ApiError(
+                    403,
+                    "You are not authorized to view this feedback."
+                );
+
+            }
+
+        }
+
+
+        // =================================================
+        // GET FEEDBACK DETAILS
+        // =================================================
+
         const details =
             await feedbackDetailRepository
                 .findByFeedbackId(
@@ -167,9 +289,9 @@ class FeedbackService {
                 );
 
 
-        // -------------------------------------------------
+        // =================================================
         // GET ACTIVE PARAMETERS
-        // -------------------------------------------------
+        // =================================================
 
         const parameters =
             await parameterRepository
@@ -178,13 +300,14 @@ class FeedbackService {
 
         const activeParams =
             parameters.filter(
-                p => p.status === "active"
+                p =>
+                    p.status === "active"
             );
 
 
-        // -------------------------------------------------
+        // =================================================
         // CALCULATE USI
-        // -------------------------------------------------
+        // =================================================
 
         const usi =
             this.calculateUSI(
@@ -215,10 +338,13 @@ class FeedbackService {
 
 
     // =====================================================
-    // HR - EVALUATION STATUS
+    // ADMIN - EVALUATION STATUS
+    //
+    // ADMIN can see all target departments mapped from
+    // the selected evaluating department for a survey.
     // =====================================================
 
-    async getFeedbackStatusForHR(
+    async getFeedbackStatusForAdmin(
         surveyId,
         fromDeptId
     ) {
@@ -246,10 +372,13 @@ class FeedbackService {
 
 
     // =====================================================
-    // HR - FEEDBACK DETAILS
+    // ADMIN - FEEDBACK DETAILS
+    //
+    // ADMIN can view feedback between the selected
+    // evaluating department and target department.
     // =====================================================
 
-    async getFeedbackDetailsForHR(
+    async getFeedbackDetailsForAdmin(
         surveyId,
         fromDeptId,
         toDeptId
@@ -285,20 +414,12 @@ class FeedbackService {
         }
 
 
-        // -------------------------------------------------
-        // GET RATINGS
-        // -------------------------------------------------
-
         const ratings =
             await feedbackDetailRepository
                 .findByFeedbackId(
                     feedback.feedback_id
                 );
 
-
-        // -------------------------------------------------
-        // GET ACTIVE PARAMETERS
-        // -------------------------------------------------
 
         const parameters =
             await parameterRepository
@@ -307,13 +428,10 @@ class FeedbackService {
 
         const activeParams =
             parameters.filter(
-                p => p.status === "active"
+                p =>
+                    p.status === "active"
             );
 
-
-        // -------------------------------------------------
-        // CALCULATE USI
-        // -------------------------------------------------
 
         const usi =
             this.calculateUSI(
@@ -349,17 +467,132 @@ class FeedbackService {
 
     async getFeedbackStatusForHOD(
         surveyId,
-        fromDeptId
+        fromDeptId,
+        userId
     ) {
 
         if (
             !surveyId ||
-            !fromDeptId
+            !fromDeptId ||
+            !userId
         ) {
 
             throw new ApiError(
                 400,
-                "surveyId and fromDeptId are required"
+                "surveyId, fromDeptId and userId are required"
+            );
+
+        }
+
+
+        // =================================================
+        // CHECK SURVEY
+        // =================================================
+
+        const survey =
+            await surveyRepository
+                .findById(
+                    surveyId
+                );
+
+
+        if (!survey) {
+
+            throw new ApiError(
+                404,
+                "Survey not found"
+            );
+
+        }
+
+
+        // =================================================
+        // CREATOR CHECK
+        // =================================================
+
+        const isCreator =
+            Number(
+                survey.created_by
+            ) ===
+            Number(
+                userId
+            );
+
+
+        // =================================================
+        // GET SURVEY MAPPINGS
+        // =================================================
+
+        const mappings =
+            await departmentMappingRepository
+                .findBySurveyId(
+                    surveyId
+                );
+
+
+        // =================================================
+        // CHECK EVALUATOR
+        // =================================================
+
+        const isEvaluator =
+            mappings.some(
+                mapping =>
+
+                    Number(
+                        mapping.from_department_id
+                    ) ===
+                    Number(
+                        fromDeptId
+                    )
+            );
+
+
+        console.log(
+            "========================================"
+        );
+
+        console.log(
+            "🔥 HOD FEEDBACK STATUS AUTHORIZATION"
+        );
+
+        console.log(
+            "SURVEY ID:",
+            surveyId
+        );
+
+        console.log(
+            "USER ID:",
+            userId
+        );
+
+        console.log(
+            "USER DEPARTMENT:",
+            fromDeptId
+        );
+
+        console.log(
+            "IS CREATOR:",
+            isCreator
+        );
+
+        console.log(
+            "IS EVALUATOR:",
+            isEvaluator
+        );
+
+        console.log(
+            "========================================"
+        );
+
+
+        if (
+            !isCreator &&
+            !isEvaluator
+        ) {
+
+            throw new ApiError(
+                403,
+                "You are not authorized to view feedback for this survey."
             );
 
         }
@@ -381,15 +614,139 @@ class FeedbackService {
     async getFeedbackDetails(
         surveyId,
         fromDeptId,
-        toDeptId
+        toDeptId,
+        userId
     ) {
+
+        if (
+            !surveyId ||
+            !fromDeptId ||
+            !toDeptId ||
+            !userId
+        ) {
+
+            throw new ApiError(
+                400,
+                "surveyId, fromDeptId, toDeptId and userId are required"
+            );
+
+        }
+
+
+        // =================================================
+        // GET SURVEY
+        // =================================================
+
+        const survey =
+            await surveyRepository
+                .findById(
+                    Number(surveyId)
+                );
+
+
+        if (!survey) {
+
+            throw new ApiError(
+                404,
+                "Survey not found"
+            );
+
+        }
+
+
+        // =================================================
+        // CHECK CREATOR
+        // =================================================
+
+        const isCreator =
+            Number(survey.created_by) ===
+            Number(userId);
+
+
+        // =================================================
+        // CHECK ACTIVE MAPPING
+        // =================================================
+
+        const mapping =
+            await departmentMappingRepository
+                .findByFromAndTo(
+                    Number(surveyId),
+                    Number(fromDeptId),
+                    Number(toDeptId)
+                );
+
+
+        const hasActiveMapping =
+            !!mapping &&
+            mapping.status === "active";
+
+
+        console.log(
+            "========================================"
+        );
+
+        console.log(
+            "🔥 HOD FEEDBACK DETAILS AUTH"
+        );
+
+        console.log(
+            "SURVEY ID:",
+            surveyId
+        );
+
+        console.log(
+            "USER ID:",
+            userId
+        );
+
+        console.log(
+            "FROM DEPARTMENT:",
+            fromDeptId
+        );
+
+        console.log(
+            "TO DEPARTMENT:",
+            toDeptId
+        );
+
+        console.log(
+            "IS CREATOR:",
+            isCreator
+        );
+
+        console.log(
+            "HAS ACTIVE MAPPING:",
+            hasActiveMapping
+        );
+
+        console.log(
+            "========================================"
+        );
+
+
+        if (
+            !isCreator &&
+            !hasActiveMapping
+        ) {
+
+            throw new ApiError(
+                403,
+                "You are not authorized to view this feedback."
+            );
+
+        }
+
+
+        // =================================================
+        // GET FEEDBACK
+        // =================================================
 
         const feedback =
             await feedbackRepository
                 .findBySurveyAndDepts(
-                    surveyId,
-                    fromDeptId,
-                    toDeptId
+                    Number(surveyId),
+                    Number(fromDeptId),
+                    Number(toDeptId)
                 );
 
 
@@ -400,6 +757,10 @@ class FeedbackService {
         }
 
 
+        // =================================================
+        // GET RATINGS
+        // =================================================
+
         const ratings =
             await feedbackDetailRepository
                 .findByFeedbackId(
@@ -407,9 +768,9 @@ class FeedbackService {
                 );
 
 
-        // -------------------------------------------------
-        // GET ACTIVE PARAMETERS
-        // -------------------------------------------------
+        // =================================================
+        // GET PARAMETERS
+        // =================================================
 
         const parameters =
             await parameterRepository
@@ -418,13 +779,14 @@ class FeedbackService {
 
         const activeParams =
             parameters.filter(
-                p => p.status === "active"
+                parameter =>
+                    parameter.status === "active"
             );
 
 
-        // -------------------------------------------------
+        // =================================================
         // CALCULATE USI
-        // -------------------------------------------------
+        // =================================================
 
         const usi =
             this.calculateUSI(
@@ -455,7 +817,82 @@ class FeedbackService {
 
 
     // =====================================================
-    // SUBMIT / SAVE FEEDBACK
+    // HOD - CREATOR FEEDBACK STATUS
+    // =====================================================
+
+    async getCreatorFeedbackStatus(
+        surveyId,
+        targetDepartmentId,
+        userId
+    ) {
+
+        if (
+            !surveyId ||
+            !targetDepartmentId ||
+            !userId
+        ) {
+
+            throw new ApiError(
+                400,
+                "surveyId, targetDepartmentId and userId are required"
+            );
+
+        }
+
+
+        // =================================================
+        // GET SURVEY
+        // =================================================
+
+        const survey =
+            await surveyRepository
+                .findById(
+                    surveyId
+                );
+
+
+        if (!survey) {
+
+            throw new ApiError(
+                404,
+                "Survey not found"
+            );
+
+        }
+
+
+        // =================================================
+        // CREATOR AUTHORIZATION
+        // =================================================
+
+        if (
+            Number(survey.created_by) !==
+            Number(userId)
+        ) {
+
+            throw new ApiError(
+                403,
+                "You are not authorized to view feedback for this survey."
+            );
+
+        }
+
+
+        // =================================================
+        // GET EVALUATOR STATUS
+        // =================================================
+
+        return await feedbackRepository
+            .getFeedbackSubmissionStatusForCreator(
+                surveyId,
+                targetDepartmentId
+            );
+
+    }
+
+
+    // =====================================================
+    // HOD - SUBMIT / SAVE FEEDBACK
     // =====================================================
 
     async submitOrSaveFeedback(
@@ -472,9 +909,9 @@ class FeedbackService {
         } = payload;
 
 
-        // -------------------------------------------------
+        // =================================================
         // BASIC VALIDATION
-        // -------------------------------------------------
+        // =================================================
 
         if (
             !survey_id ||
@@ -491,9 +928,9 @@ class FeedbackService {
         }
 
 
-        // -------------------------------------------------
+        // =================================================
         // STATUS VALIDATION
-        // -------------------------------------------------
+        // =================================================
 
         if (
             status !== "draft" &&
@@ -508,12 +945,14 @@ class FeedbackService {
         }
 
 
-        // -------------------------------------------------
+        // =================================================
         // FROM DEPARTMENT
-        // -------------------------------------------------
+        // =================================================
 
         const from_department_id =
-            user.department_id;
+            Number(
+                user.department_id
+            );
 
 
         if (!from_department_id) {
@@ -526,13 +965,25 @@ class FeedbackService {
         }
 
 
-        // -------------------------------------------------
+        const surveyId =
+            Number(
+                survey_id
+            );
+
+
+        const toDepartmentId =
+            Number(
+                to_department_id
+            );
+
+
+        // =================================================
         // SAME DEPARTMENT CHECK
-        // -------------------------------------------------
+        // =================================================
 
         if (
-            parseInt(from_department_id) ===
-            parseInt(to_department_id)
+            from_department_id ===
+            toDepartmentId
         ) {
 
             throw new ApiError(
@@ -543,9 +994,9 @@ class FeedbackService {
         }
 
 
-        // -------------------------------------------------
+        // =================================================
         // ACTIVE SURVEY VALIDATION
-        // -------------------------------------------------
+        // =================================================
 
         const activeSurvey =
             await surveyRepository
@@ -554,8 +1005,8 @@ class FeedbackService {
 
         if (
             !activeSurvey ||
-            activeSurvey.survey_id !==
-            parseInt(survey_id)
+            Number(activeSurvey.survey_id) !==
+            surveyId
         ) {
 
             throw new ApiError(
@@ -566,20 +1017,64 @@ class FeedbackService {
         }
 
 
-        // -------------------------------------------------
+        // =================================================
         // DEPARTMENT MAPPING
-        // -------------------------------------------------
+        // =================================================
 
         const mapping =
             await departmentMappingRepository
                 .findByFromAndTo(
-                    Number(survey_id),
-                    Number(from_department_id),
-                    Number(to_department_id)
+                    surveyId,
+                    from_department_id,
+                    toDepartmentId
                 );
+
+
+        console.log(
+            "========================================"
+        );
+
+        console.log(
+            "🔥 FEEDBACK SUBMIT AUTHORIZATION"
+        );
+
+        console.log(
+            "USER ID:",
+            user.user_id
+        );
+
+        console.log(
+            "USER ROLE:",
+            user.role_name
+        );
+
+        console.log(
+            "SURVEY ID:",
+            surveyId
+        );
+
+        console.log(
+            "FROM DEPARTMENT:",
+            from_department_id
+        );
+
+        console.log(
+            "TO DEPARTMENT:",
+            toDepartmentId
+        );
+
+        console.log(
+            "MAPPING:",
+            mapping
+        );
+
+        console.log(
+            "========================================"
+        );
+
+
         if (
-            !mapping ||
-            mapping.status !== "active"
+            !mapping
         ) {
 
             throw new ApiError(
@@ -590,18 +1085,34 @@ class FeedbackService {
         }
 
 
-        // -------------------------------------------------
+        if (
+            mapping.status !== "active"
+        ) {
+
+            throw new ApiError(
+                403,
+                "This department evaluation mapping is inactive."
+            );
+
+        }
+
+
+        // =================================================
         // CHECK EXISTING FEEDBACK
-        // -------------------------------------------------
+        // =================================================
 
         let feedback =
             await feedbackRepository
                 .findBySurveyAndDepts(
-                    survey_id,
+                    surveyId,
                     from_department_id,
-                    to_department_id
+                    toDepartmentId
                 );
 
+
+        // =================================================
+        // PREVENT MODIFYING SUBMITTED FEEDBACK
+        // =================================================
 
         if (
             feedback &&
@@ -616,9 +1127,9 @@ class FeedbackService {
         }
 
 
-        // -------------------------------------------------
+        // =================================================
         // GET ACTIVE PARAMETERS
-        // -------------------------------------------------
+        // =================================================
 
         const parameters =
             await parameterRepository
@@ -627,13 +1138,14 @@ class FeedbackService {
 
         const activeParams =
             parameters.filter(
-                p => p.status === "active"
+                p =>
+                    p.status === "active"
             );
 
 
-        // -------------------------------------------------
+        // =================================================
         // VALIDATE RATINGS ARRAY
-        // -------------------------------------------------
+        // =================================================
 
         if (
             !Array.isArray(ratings)
@@ -647,9 +1159,9 @@ class FeedbackService {
         }
 
 
-        // -------------------------------------------------
+        // =================================================
         // VALIDATE EACH RATING
-        // -------------------------------------------------
+        // =================================================
 
         for (
             const item of ratings
@@ -677,8 +1189,12 @@ class FeedbackService {
             const paramExists =
                 activeParams.find(
                     p =>
-                        p.parameter_id ===
-                        parseInt(parameter_id)
+                        Number(
+                            p.parameter_id
+                        ) ===
+                        Number(
+                            parameter_id
+                        )
                 );
 
 
@@ -693,7 +1209,9 @@ class FeedbackService {
 
 
             const rVal =
-                parseInt(rating);
+                parseInt(
+                    rating
+                );
 
 
             if (
@@ -712,9 +1230,9 @@ class FeedbackService {
         }
 
 
-        // -------------------------------------------------
-        // SUBMITTED → ALL PARAMETERS REQUIRED
-        // -------------------------------------------------
+        // =================================================
+        // SUBMITTED -> ALL PARAMETERS REQUIRED
+        // =================================================
 
         if (
             status === "submitted"
@@ -723,7 +1241,7 @@ class FeedbackService {
             const ratedParamIds =
                 ratings.map(
                     r =>
-                        parseInt(
+                        Number(
                             r.parameter_id
                         )
                 );
@@ -733,7 +1251,9 @@ class FeedbackService {
                 activeParams.filter(
                     ap =>
                         !ratedParamIds.includes(
-                            ap.parameter_id
+                            Number(
+                                ap.parameter_id
+                            )
                         )
                 );
 
@@ -761,9 +1281,9 @@ class FeedbackService {
         }
 
 
-        // -------------------------------------------------
+        // =================================================
         // CREATE / UPDATE FEEDBACK
-        // -------------------------------------------------
+        // =================================================
 
         let feedbackId;
 
@@ -774,18 +1294,23 @@ class FeedbackService {
                 await feedbackRepository
                     .create({
 
-                        survey_id,
+                        survey_id:
+                            surveyId,
 
-                        from_department_id,
+                        from_department_id:
+                            from_department_id,
 
-                        to_department_id,
+                        to_department_id:
+                            toDepartmentId,
 
                         submitted_by:
                             user.user_id,
 
-                        overall_comment,
+                        overall_comment:
+                            overall_comment,
 
-                        status
+                        status:
+                            status
 
                     });
 
@@ -801,17 +1326,22 @@ class FeedbackService {
                 .update(
                     feedbackId,
                     {
-                        overall_comment,
-                        status
+
+                        overall_comment:
+                            overall_comment,
+
+                        status:
+                            status
+
                     }
                 );
 
         }
 
 
-        // -------------------------------------------------
+        // =================================================
         // UPSERT FEEDBACK DETAILS
-        // -------------------------------------------------
+        // =================================================
 
         for (
             const item of ratings
@@ -835,13 +1365,15 @@ class FeedbackService {
         }
 
 
-        // -------------------------------------------------
+        // =================================================
         // RETURN UPDATED FEEDBACK
-        // -------------------------------------------------
+        // =================================================
 
         return await this
             .getFeedbackById(
-                feedbackId
+                feedbackId,
+                user.user_id,
+                user.role_name
             );
 
     }

@@ -4,9 +4,13 @@ const feedbackService =
 const ApiResponse =
     require("../utils/ApiResponse");
 
+const ApiError =
+    require("../utils/ApiError");
+
 
 // =====================================================
 // GET FEEDBACK BY ID
+// ADMIN + HOD
 // =====================================================
 
 const getFeedbackById = async (
@@ -29,12 +33,16 @@ const getFeedbackById = async (
         const feedback =
             await feedbackService
                 .getFeedbackById(
-                    req.params.id
+                    req.params.id,
+                    req.user.user_id,
+                    req.user.role_name
                 );
+
 
         console.log(
             "✅ getFeedbackById SERVICE SUCCESS"
         );
+
 
         res
             .status(200)
@@ -45,6 +53,7 @@ const getFeedbackById = async (
                     "Feedback fetched successfully"
                 )
             );
+
 
     } catch (error) {
 
@@ -77,31 +86,63 @@ const getFeedbackStatusForHOD = async (
     console.log("USER:", req.user);
     console.log("========================================");
 
+
     try {
 
         const {
             survey_id
         } = req.query;
 
+
         const fromDeptId =
-            req.user.department_id;
+            Number(
+                req.user.department_id
+            );
+
+
+        const surveyId =
+            Number(
+                survey_id
+            );
+
 
         console.log(
             "SURVEY ID:",
-            survey_id
+            surveyId
         );
 
         console.log(
-            "FROM DEPARTMENT ID:",
+            "FROM / EVALUATOR DEPARTMENT ID:",
             fromDeptId
         );
+
+        console.log(
+            "USER ID:",
+            req.user.user_id
+        );
+
+
+        if (
+            !surveyId ||
+            !fromDeptId
+        ) {
+
+            throw new ApiError(
+                400,
+                "survey_id and user department are required"
+            );
+
+        }
+
 
         const status =
             await feedbackService
                 .getFeedbackStatusForHOD(
-                    survey_id,
-                    fromDeptId
+                    surveyId,
+                    fromDeptId,
+                    req.user.user_id
                 );
+
 
         console.log(
             "✅ HOD STATUS SERVICE SUCCESS"
@@ -112,6 +153,7 @@ const getFeedbackStatusForHOD = async (
             status
         );
 
+
         res
             .status(200)
             .json(
@@ -121,6 +163,7 @@ const getFeedbackStatusForHOD = async (
                     "Feedback status list fetched successfully"
                 )
             );
+
 
     } catch (error) {
 
@@ -137,10 +180,12 @@ const getFeedbackStatusForHOD = async (
 
 
 // =====================================================
-// HR / ADMIN - EVALUATION STATUS
+// ADMIN - EVALUATION STATUS
+//
+// ADMIN functionality
 // =====================================================
 
-const getFeedbackStatusForHR = async (
+const getFeedbackStatusForAdmin = async (
     req,
     res,
     next
@@ -148,40 +193,14 @@ const getFeedbackStatusForHR = async (
 
     console.log("");
     console.log("========================================");
-    console.log("🔥🔥 CONTROLLER REACHED 🔥🔥");
-    console.log("CONTROLLER: getFeedbackStatusForHR");
+    console.log("🔥 CONTROLLER: getFeedbackStatusForAdmin");
     console.log("METHOD:", req.method);
     console.log("URL:", req.originalUrl);
-
-    console.log(
-        "USER:",
-        req.user
-    );
-
-    console.log(
-        "USER ID:",
-        req.user?.user_id
-    );
-
-    console.log(
-        "USER ROLE:",
-        req.user?.role_name
-    );
-
-    console.log(
-        "USER DEPARTMENT:",
-        req.user?.department_id
-    );
-
-    console.log(
-        "========================================");
+    console.log("USER:", req.user);
+    console.log("========================================");
 
 
     try {
-
-        // -------------------------------------------------
-        // QUERY PARAMETERS
-        // -------------------------------------------------
 
         const {
             survey_id,
@@ -203,40 +222,17 @@ const getFeedbackStatusForHR = async (
             from_department_id
         );
 
-        console.log(
-            "SURVEY ID TYPE:",
-            typeof survey_id
-        );
-
-        console.log(
-            "FROM DEPARTMENT ID TYPE:",
-            typeof from_department_id
-        );
-
-
-        // -------------------------------------------------
-        // SERVICE CALL
-        // -------------------------------------------------
-
-        console.log(
-            "➡️ CALLING feedbackService.getFeedbackStatusForHR()"
-        );
-
 
         const status =
             await feedbackService
-                .getFeedbackStatusForHR(
+                .getFeedbackStatusForAdmin(
                     survey_id,
                     from_department_id
                 );
 
 
-        // -------------------------------------------------
-        // SERVICE SUCCESS
-        // -------------------------------------------------
-
         console.log(
-            "✅ feedbackService.getFeedbackStatusForHR() SUCCESS"
+            "✅ ADMIN FEEDBACK STATUS SERVICE SUCCESS"
         );
 
         console.log(
@@ -245,52 +241,22 @@ const getFeedbackStatusForHR = async (
         );
 
 
-        // -------------------------------------------------
-        // RESPONSE
-        // -------------------------------------------------
-
-        console.log(
-            "📤 SENDING 200 RESPONSE"
-        );
-
-
         res
             .status(200)
             .json(
-
                 new ApiResponse(
                     200,
                     status,
-                    "HR feedback status fetched successfully"
+                    "Feedback status fetched successfully"
                 )
-
             );
 
 
     } catch (error) {
 
-        console.error("");
         console.error(
-            "❌❌ HR STATUS CONTROLLER ERROR ❌❌"
-        );
-
-        console.error(
-            "ERROR MESSAGE:",
-            error.message
-        );
-
-        console.error(
-            "ERROR STATUS:",
-            error.statusCode
-        );
-
-        console.error(
-            "FULL ERROR:",
+            "❌ ADMIN STATUS CONTROLLER ERROR:",
             error
-        );
-
-        console.error(
-            "========================================"
         );
 
         next(error);
@@ -301,10 +267,10 @@ const getFeedbackStatusForHR = async (
 
 
 // =====================================================
-// HR / ADMIN - FEEDBACK DETAILS
+// HOD - CREATOR FEEDBACK STATUS
 // =====================================================
 
-const getFeedbackDetailsForHR = async (
+const getCreatorFeedbackStatus = async (
     req,
     res,
     next
@@ -312,10 +278,90 @@ const getFeedbackDetailsForHR = async (
 
     console.log("");
     console.log("========================================");
-    console.log("🔥 CONTROLLER: getFeedbackDetailsForHR");
+    console.log("🔥 CREATOR FEEDBACK STATUS");
     console.log("URL:", req.originalUrl);
     console.log("USER:", req.user);
     console.log("========================================");
+
+
+    try {
+
+        const surveyId =
+            Number(
+                req.query.survey_id
+            );
+
+
+        const targetDepartmentId =
+            Number(
+                req.query.target_department_id
+            );
+
+
+        if (
+            !surveyId ||
+            !targetDepartmentId
+        ) {
+
+            throw new ApiError(
+                400,
+                "survey_id and target_department_id are required"
+            );
+
+        }
+
+
+        const result =
+            await feedbackService
+                .getCreatorFeedbackStatus(
+                    surveyId,
+                    targetDepartmentId,
+                    req.user.user_id
+                );
+
+
+        res
+            .status(200)
+            .json(
+                new ApiResponse(
+                    200,
+                    result,
+                    "Creator feedback status fetched successfully"
+                )
+            );
+
+
+    } catch (error) {
+
+        console.error(
+            "❌ CREATOR FEEDBACK STATUS ERROR:",
+            error
+        );
+
+        next(error);
+
+    }
+
+};
+
+
+// =====================================================
+// ADMIN - FEEDBACK DETAILS
+// =====================================================
+
+const getFeedbackDetailsForAdmin = async (
+    req,
+    res,
+    next
+) => {
+
+    console.log("");
+    console.log("========================================");
+    console.log("🔥 CONTROLLER: getFeedbackDetailsForAdmin");
+    console.log("URL:", req.originalUrl);
+    console.log("USER:", req.user);
+    console.log("========================================");
+
 
     try {
 
@@ -342,14 +388,9 @@ const getFeedbackDetailsForHR = async (
         );
 
 
-        console.log(
-            "➡️ Calling getFeedbackDetailsForHR service"
-        );
-
-
         const feedback =
             await feedbackService
-                .getFeedbackDetailsForHR(
+                .getFeedbackDetailsForAdmin(
                     survey_id,
                     from_department_id,
                     to_department_id
@@ -357,32 +398,25 @@ const getFeedbackDetailsForHR = async (
 
 
         console.log(
-            "✅ getFeedbackDetailsForHR SERVICE SUCCESS"
-        );
-
-        console.log(
-            "FEEDBACK RESULT:",
-            feedback
+            "✅ ADMIN FEEDBACK DETAILS SERVICE SUCCESS"
         );
 
 
         res
             .status(200)
             .json(
-
                 new ApiResponse(
                     200,
                     feedback,
-                    "HR feedback details fetched successfully"
+                    "Feedback details fetched successfully"
                 )
-
             );
 
 
     } catch (error) {
 
         console.error(
-            "❌ HR DETAILS ERROR:",
+            "❌ ADMIN DETAILS ERROR:",
             error
         );
 
@@ -410,15 +444,18 @@ const getFeedbackDetails = async (
     console.log("USER:", req.user);
     console.log("========================================");
 
+
     try {
 
         const {
             survey_id,
+            from_department_id,
             to_department_id
         } = req.query;
 
 
         const fromDeptId =
+            from_department_id ||
             req.user.department_id;
 
 
@@ -443,7 +480,8 @@ const getFeedbackDetails = async (
                 .getFeedbackDetails(
                     survey_id,
                     fromDeptId,
-                    to_department_id
+                    to_department_id,
+                    req.user.user_id
                 );
 
 
@@ -493,6 +531,7 @@ const submitOrSaveFeedback = async (
     console.log("USER:", req.user);
     console.log("BODY:", req.body);
     console.log("========================================");
+
 
     try {
 
@@ -550,13 +589,14 @@ module.exports = {
 
     getFeedbackStatusForHOD,
 
+    getCreatorFeedbackStatus,
+
     getFeedbackDetails,
 
     submitOrSaveFeedback,
 
-    // HR / ADMIN
-    getFeedbackStatusForHR,
+    getFeedbackStatusForAdmin,
 
-    getFeedbackDetailsForHR
+    getFeedbackDetailsForAdmin
 
 };

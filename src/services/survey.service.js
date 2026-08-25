@@ -14,44 +14,63 @@ class SurveyService {
     // =====================================================
     // GET ALL SURVEYS
     // =====================================================
-async getAllSurveys(
-    userId,
-    roleName
-) {
-
-    if (
-        roleName === "ADMIN" ||
-        roleName === "HR"
+    async getAllSurveys(
+        userId,
+        roleName
     ) {
 
-        return await surveyRepository.findAll();
+        // =================================================
+        // ADMIN
+        //
+        // ADMIN can view all surveys.
+        // =================================================
+
+        if (
+            roleName === "ADMIN"
+        ) {
+
+            return await surveyRepository
+                .findAll();
+
+        }
+
+
+        // =================================================
+        // HOD
+        //
+        // HOD can view surveys created by himself.
+        // =================================================
+
+        if (
+            roleName === "HOD"
+        ) {
+
+            return await surveyRepository
+                .findByCreatedBy(
+                    userId
+                );
+
+        }
+
+
+        return [];
 
     }
-
-
-    if (roleName === "HOD") {
-
-        return await surveyRepository
-            .findByCreatedBy(userId);
-
-    }
-
-
-    return [];
-
-}
 
 
     // =====================================================
     // GET SURVEY BY ID
     // =====================================================
 
-    async getSurveyById(surveyId) {
+    async getSurveyById(
+        surveyId
+    ) {
 
         const survey =
-            await surveyRepository.findById(
-                surveyId
-            );
+            await surveyRepository
+                .findById(
+                    surveyId
+                );
 
 
         if (!survey) {
@@ -78,7 +97,8 @@ async getAllSurveys(
     async getActiveSurvey() {
 
         const survey =
-            await surveyRepository.findActiveSurvey();
+            await surveyRepository
+                .findActiveSurvey();
 
 
         if (!survey) {
@@ -111,27 +131,30 @@ async getAllSurveys(
     // =====================================================
     // GET MY SURVEYS
     //
-    // IMPORTANT:
-    //
-    // Current logged-in HOD/HR department is treated
+    // Current logged-in HOD department is treated
     // as EVALUATING DEPARTMENT.
     //
     // Example:
     //
-    // Logged-in department = HR
+    // Logged-in department = ACCOUNT
     //
     // Survey mapping:
-    // HR → IT
+    //
+    // ACCOUNT → IT
     //
     // Result:
-    // HR sees that survey to evaluate IT.
+    //
+    // ACCOUNT HOD sees that survey to evaluate IT.
     // =====================================================
 
     async getMySurveys(
-        departmentId
+        departmentId,
+        userId
     ) {
 
-        if (!departmentId) {
+        if (
+            !departmentId
+        ) {
 
             throw new ApiError(
                 400,
@@ -142,8 +165,9 @@ async getAllSurveys(
 
 
         return await surveyRepository
-            .findSurveysByEvaluatorDepartmentId(
-                departmentId
+            .findMySurveys(
+                departmentId,
+                userId
             );
 
     }
@@ -152,7 +176,8 @@ async getAllSurveys(
     // =====================================================
     // CREATE SURVEY
     //
-    // NEW REQUIREMENT
+    // Admin / HOD can create surveys according to route
+    // permissions.
     //
     // Admin decides:
     //
@@ -165,9 +190,9 @@ async getAllSurveys(
     // Target = IT
     //
     // Evaluators:
-    // HR
+    // ACCOUNT
     // QA
-    // ACC
+    // COMPUTER
     //
     // Database:
     //
@@ -195,7 +220,9 @@ async getAllSurveys(
         // DATE NORMALIZATION
         // =================================================
 
-        if (start_date) {
+        if (
+            start_date
+        ) {
 
             start_date =
                 start_date.split("T")[0];
@@ -203,7 +230,9 @@ async getAllSurveys(
         }
 
 
-        if (end_date) {
+        if (
+            end_date
+        ) {
 
             end_date =
                 end_date.split("T")[0];
@@ -233,7 +262,9 @@ async getAllSurveys(
         // TARGET DEPARTMENT REQUIRED
         // =================================================
 
-        if (!target_department_id) {
+        if (
+            !target_department_id
+        ) {
 
             throw new ApiError(
                 400,
@@ -291,12 +322,13 @@ async getAllSurveys(
 
         const evaluatorDepartmentIds =
             evaluating_department_ids.map(
-                id => parseInt(id)
+                id =>
+                    parseInt(id)
             );
 
 
         // =================================================
-        // CHECK INVALID IDs
+        // CHECK INVALID TARGET ID
         // =================================================
 
         if (
@@ -328,7 +360,7 @@ async getAllSurveys(
         // =================================================
         // SELF EVALUATION CHECK
         //
-        // IT cannot evaluate IT
+        // Department cannot evaluate itself.
         // =================================================
 
         if (
@@ -350,12 +382,15 @@ async getAllSurveys(
         // =================================================
 
         const targetDepartment =
-            await departmentRepository.findById(
-                targetDepartmentId
-            );
+            await departmentRepository
+                .findById(
+                    targetDepartmentId
+                );
 
 
-        if (!targetDepartment) {
+        if (
+            !targetDepartment
+        ) {
 
             throw new ApiError(
                 400,
@@ -375,12 +410,15 @@ async getAllSurveys(
         ) {
 
             const evaluatorDepartment =
-                await departmentRepository.findById(
-                    evaluatorId
-                );
+                await departmentRepository
+                    .findById(
+                        evaluatorId
+                    );
 
 
-            if (!evaluatorDepartment) {
+            if (
+                !evaluatorDepartment
+            ) {
 
                 throw new ApiError(
                     400,
@@ -396,37 +434,39 @@ async getAllSurveys(
         // CREATE EVERYTHING IN ONE TRANSACTION
         // =================================================
 
-      const newId =
-    await surveyRepository
-        .createSurveyWithDepartments({
+        const newId =
+            await surveyRepository
+                .createSurveyWithDepartments({
 
-            survey_name,
+                    survey_name,
 
-            start_date,
+                    start_date,
 
-            end_date,
+                    end_date,
 
-            status:
-                status || "draft",
+                    status:
+                        status || "draft",
 
-            created_by:
-                created_by,
+                    created_by:
+                        created_by,
 
-            target_department_id:
-                targetDepartmentId,
+                    target_department_id:
+                        targetDepartmentId,
 
-            evaluating_department_ids:
-                uniqueEvaluatorIds
+                    evaluating_department_ids:
+                        uniqueEvaluatorIds
 
-        });
+                });
+
 
         // =================================================
         // RETURN CREATED SURVEY
         // =================================================
 
-        return await surveyRepository.findById(
-            newId
-        );
+        return await surveyRepository
+            .findById(
+                newId
+            );
 
     }
 
@@ -452,7 +492,9 @@ async getAllSurveys(
         // ISO DATE → MYSQL DATE
         // =================================================
 
-        if (start_date) {
+        if (
+            start_date
+        ) {
 
             start_date =
                 start_date.split("T")[0];
@@ -460,7 +502,9 @@ async getAllSurveys(
         }
 
 
-        if (end_date) {
+        if (
+            end_date
+        ) {
 
             end_date =
                 end_date.split("T")[0];
@@ -508,12 +552,15 @@ async getAllSurveys(
         // =================================================
 
         const survey =
-            await surveyRepository.findById(
-                surveyId
-            );
+            await surveyRepository
+                .findById(
+                    surveyId
+                );
 
 
-        if (!survey) {
+        if (
+            !survey
+        ) {
 
             throw new ApiError(
                 404,
@@ -527,30 +574,33 @@ async getAllSurveys(
         // UPDATE SURVEY
         // =================================================
 
-        await surveyRepository.update(
-            surveyId,
-            {
+        await surveyRepository
+            .update(
+                surveyId,
+                {
 
-                survey_name,
+                    survey_name,
 
-                start_date,
+                    start_date,
 
-                end_date,
+                    end_date,
 
-                status:
-                    status || survey.status
+                    status:
+                        status ||
+                        survey.status
 
-            }
-        );
+                }
+            );
 
 
         // =================================================
         // RETURN UPDATED SURVEY
         // =================================================
 
-        return await surveyRepository.findById(
-            surveyId
-        );
+        return await surveyRepository
+            .findById(
+                surveyId
+            );
 
     }
 
@@ -564,12 +614,15 @@ async getAllSurveys(
     ) {
 
         const survey =
-            await surveyRepository.findById(
-                surveyId
-            );
+            await surveyRepository
+                .findById(
+                    surveyId
+                );
 
 
-        if (!survey) {
+        if (
+            !survey
+        ) {
 
             throw new ApiError(
                 404,
@@ -579,13 +632,15 @@ async getAllSurveys(
         }
 
 
-        return await surveyRepository.delete(
-            surveyId
-        );
+        return await surveyRepository
+            .delete(
+                surveyId
+            );
 
     }
 
 }
 
 
-module.exports = new SurveyService();
+module.exports =
+    new SurveyService();

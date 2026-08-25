@@ -494,6 +494,101 @@ async createSurveyWithDepartments(surveyData) {
         return result.affectedRows > 0;
     }
 
+
+
+
+
+
+
+
+
+
+
+    // =====================================================
+// GET MY SURVEYS
+//
+// HOD/HR sees:
+// 1. Surveys where own department is evaluator
+// 2. Surveys created by the logged-in HOD
+//
+// Example:
+//
+// IT HOD creates:
+// New 2
+// Target = IT
+// Evaluator = HR
+//
+// IT HOD -> sees New 2
+// HR HOD -> sees New 2
+// =====================================================
+
+async findMySurveys(
+    departmentId,
+    userId
+) {
+
+    const query = `
+        SELECT DISTINCT
+            s.survey_id,
+            s.survey_name,
+            s.start_date,
+            s.end_date,
+            s.status,
+            s.created_by,
+
+            dm.mapping_id,
+            dm.from_department_id,
+            dm.to_department_id,
+
+            target.department_code
+                AS target_department_code,
+
+            target.department_name
+                AS target_department_name,
+
+            evaluator.department_code
+                AS evaluator_department_code,
+
+            evaluator.department_name
+                AS evaluator_department_name
+
+        FROM surveys s
+
+        LEFT JOIN department_mappings dm
+            ON dm.survey_id = s.survey_id
+           AND dm.status = 'active'
+
+        LEFT JOIN departments evaluator
+            ON dm.from_department_id =
+               evaluator.department_id
+
+        LEFT JOIN departments target
+            ON dm.to_department_id =
+               target.department_id
+
+        WHERE
+            (
+                dm.from_department_id = ?
+                OR
+                s.created_by = ?
+            )
+
+        ORDER BY
+            s.survey_id DESC
+    `;
+
+    const [rows] =
+        await pool.query(
+            query,
+            [
+                departmentId,
+                userId
+            ]
+        );
+
+    return rows;
+}
+
 }
 
 

@@ -159,11 +159,14 @@ const getMySurveys =
             const departmentId =
                 req.user.department_id;
 
+            const userId =
+                req.user.user_id;
 
             const surveys =
                 await surveyService
                     .getMySurveys(
-                        departmentId
+                        departmentId,
+                        userId
                     );
 
 

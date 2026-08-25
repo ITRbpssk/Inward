@@ -20,15 +20,14 @@ router.use(authMiddleware);
 
 // =====================================================
 // DASHBOARD SUMMARY
-// ADMIN + HOD + HR
+// ADMIN + HOD
 // =====================================================
 
 router.get(
     "/summary",
     roleMiddleware([
         ROLES.ADMIN,
-        ROLES.HOD,
-        ROLES.HR
+        ROLES.HOD
     ]),
     dashboardController.getSummary
 );
@@ -36,37 +35,28 @@ router.get(
 
 // =====================================================
 // DEPARTMENT ANALYTICS
-// ADMIN + HOD + HR
+// ADMIN + HOD
 // =====================================================
 
 router.get(
     "/department-analytics",
     roleMiddleware([
         ROLES.ADMIN,
-        ROLES.HOD,
-        ROLES.HR
+        ROLES.HOD
     ]),
     dashboardController.getDepartmentAnalytics
 );
 
 
-
-
-
-
-
-
-
 // =====================================================
 // DEPARTMENT EVALUATION OVERVIEW
-// ADMIN + HR
+// ADMIN ONLY
 // =====================================================
 
 router.get(
     "/department-evaluation-overview",
     roleMiddleware([
-        ROLES.ADMIN,
-        ROLES.HR
+        ROLES.ADMIN
     ]),
     dashboardController.getDepartmentEvaluationOverview
 );
@@ -74,15 +64,14 @@ router.get(
 
 // =====================================================
 // DEPARTMENT DETAILED ANALYTICS
-// ADMIN + HOD + HR
+// ADMIN + HOD
 // =====================================================
 
 router.get(
     "/department-detailed",
     roleMiddleware([
         ROLES.ADMIN,
-        ROLES.HOD,
-        ROLES.HR
+        ROLES.HOD
     ]),
     dashboardController.getDepartmentDetailedAnalytics
 );

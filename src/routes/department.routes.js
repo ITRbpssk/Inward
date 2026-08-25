@@ -52,15 +52,14 @@ router.delete(
 
 // =====================================================
 // DEPARTMENT VIEW
-// ADMIN + HOD + HR
+// ADMIN + HOD
 // =====================================================
 
 router.get(
     "/",
     roleMiddleware([
         ROLES.ADMIN,
-        ROLES.HOD,
-        ROLES.HR
+        ROLES.HOD
     ]),
     departmentController.getAllDepartments
 );
@@ -70,8 +69,7 @@ router.get(
     "/:id",
     roleMiddleware([
         ROLES.ADMIN,
-        ROLES.HOD,
-        ROLES.HR
+        ROLES.HOD
     ]),
     departmentController.getDepartmentById
 );
