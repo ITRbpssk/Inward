@@ -477,53 +477,133 @@ class DepartmentMappingRepository {
     // =====================================================
     // GET MAPPED TARGETS FOR HOD - SURVEY WISE
     // =====================================================
+// =====================================================
+// GET MAPPED TARGETS FOR HOD - SURVEY WISE
+// =====================================================
+// =====================================================
+// GET MAPPED TARGETS FOR HOD - SURVEY WISE
+// =====================================================
 
-    async findMappedToDepartments(
-        fromDeptId,
-        surveyId
-    ) {
+async findMappedToDepartments(
+    fromDeptId,
+    surveyId
+) {
 
-        const query = `
+    const fromDepartmentId =
+        Number(fromDeptId);
+
+    const surveyIdNumber =
+        Number(surveyId);
+
+
+    const query = `
         SELECT
+
             dm.mapping_id,
+
             dm.survey_id,
+
+            dm.from_department_id,
+
             dm.to_department_id,
 
-            d.department_name,
-            d.department_code
+            dm.status,
+
+            f.department_name
+                AS from_department_name,
+
+            f.department_code
+                AS from_department_code,
+
+            t.department_name
+                AS department_name,
+
+            t.department_code
+                AS department_code,
+
+            t.department_name
+                AS to_department_name,
+
+            t.department_code
+                AS to_department_code
 
         FROM department_mappings dm
 
-        INNER JOIN departments d
+        INNER JOIN departments f
+            ON dm.from_department_id =
+               f.department_id
+
+        INNER JOIN departments t
             ON dm.to_department_id =
-               d.department_id
+               t.department_id
 
-        WHERE dm.from_department_id = ?
+        WHERE
+            dm.from_department_id = ?
 
-          AND dm.survey_id = ?
+            AND dm.survey_id = ?
 
-          AND dm.status = 'active'
+            AND dm.status = 'active'
 
-          AND d.status = 'active'
+            AND f.status = 'active'
 
-        ORDER BY dm.mapping_id ASC
+            AND t.status = 'active'
+
+        ORDER BY
+            dm.mapping_id ASC
     `;
 
 
-        const [rows] =
-            await pool.query(
-                query,
-                [
-                    fromDeptId,
-                    surveyId
-                ]
-            );
+    console.log(
+        '========================================'
+    );
+
+    console.log(
+        '🔥 HOD TARGET QUERY'
+    );
+
+    console.log(
+        'FROM DEPARTMENT:',
+        fromDepartmentId
+    );
+
+    console.log(
+        'SURVEY:',
+        surveyIdNumber
+    );
+
+    console.log(
+        '========================================'
+    );
 
 
-        return rows;
-    }
+    const [rows] =
+        await pool.query(
+            query,
+            [
+                fromDepartmentId,
+                surveyIdNumber
+            ]
+        );
 
 
+    console.log(
+        '🔥 HOD TARGETS:',
+        JSON.stringify(
+            rows,
+            null,
+            2
+        )
+    );
+
+
+    console.log(
+        '🔥 TARGET COUNT:',
+        rows.length
+    );
+
+
+    return rows;
+}
     // =====================================================
     // UPDATE SINGLE MAPPING
     // =====================================================

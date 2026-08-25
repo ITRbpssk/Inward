@@ -14,16 +14,11 @@ class SurveyService {
     // =====================================================
     // GET ALL SURVEYS
     // =====================================================
+
     async getAllSurveys(
         userId,
         roleName
     ) {
-
-        // =================================================
-        // ADMIN
-        //
-        // ADMIN can view all surveys.
-        // =================================================
 
         if (
             roleName === "ADMIN"
@@ -34,12 +29,6 @@ class SurveyService {
 
         }
 
-
-        // =================================================
-        // HOD
-        //
-        // HOD can view surveys created by himself.
-        // =================================================
 
         if (
             roleName === "HOD"
@@ -90,8 +79,6 @@ class SurveyService {
 
     // =====================================================
     // GET ONE ACTIVE SURVEY
-    //
-    // BACKWARD COMPATIBILITY
     // =====================================================
 
     async getActiveSurvey() {
@@ -130,21 +117,6 @@ class SurveyService {
 
     // =====================================================
     // GET MY SURVEYS
-    //
-    // Current logged-in HOD department is treated
-    // as EVALUATING DEPARTMENT.
-    //
-    // Example:
-    //
-    // Logged-in department = ACCOUNT
-    //
-    // Survey mapping:
-    //
-    // ACCOUNT → IT
-    //
-    // Result:
-    //
-    // ACCOUNT HOD sees that survey to evaluate IT.
     // =====================================================
 
     async getMySurveys(
@@ -175,30 +147,6 @@ class SurveyService {
 
     // =====================================================
     // CREATE SURVEY
-    //
-    // Admin / HOD can create surveys according to route
-    // permissions.
-    //
-    // Admin decides:
-    //
-    // 1. Survey name
-    // 2. Target department
-    // 3. Evaluating departments
-    //
-    // Example:
-    //
-    // Target = IT
-    //
-    // Evaluators:
-    // ACCOUNT
-    // QA
-    // COMPUTER
-    //
-    // Database:
-    //
-    // surveys
-    // survey_departments
-    // department_mappings
     // =====================================================
 
     async createSurvey(
@@ -207,12 +155,23 @@ class SurveyService {
     ) {
 
         let {
+
             survey_name,
+
+            survey_type,
+
             start_date,
+
             end_date,
+
             status,
+
             target_department_id,
-            evaluating_department_ids
+
+            evaluating_department_ids,
+
+            special_parameters
+
         } = surveyData;
 
 
@@ -225,7 +184,10 @@ class SurveyService {
         ) {
 
             start_date =
-                start_date.split("T")[0];
+                String(
+                    start_date
+                )
+                    .split("T")[0];
 
         }
 
@@ -235,7 +197,40 @@ class SurveyService {
         ) {
 
             end_date =
-                end_date.split("T")[0];
+                String(
+                    end_date
+                )
+                    .split("T")[0];
+
+        }
+
+
+        // =================================================
+        // SURVEY TYPE
+        // =================================================
+
+        survey_type =
+            String(
+                survey_type ||
+                "general"
+            )
+                .toLowerCase()
+                .trim();
+
+
+        if (
+            ![
+                "general",
+                "special"
+            ].includes(
+                survey_type
+            )
+        ) {
+
+            throw new ApiError(
+                400,
+                "Invalid survey type"
+            );
 
         }
 
@@ -259,7 +254,7 @@ class SurveyService {
 
 
         // =================================================
-        // TARGET DEPARTMENT REQUIRED
+        // TARGET DEPARTMENT
         // =================================================
 
         if (
@@ -275,7 +270,7 @@ class SurveyService {
 
 
         // =================================================
-        // EVALUATING DEPARTMENTS REQUIRED
+        // EVALUATORS
         // =================================================
 
         if (
@@ -311,30 +306,20 @@ class SurveyService {
 
 
         // =================================================
-        // CONVERT IDs TO INTEGER
+        // IDS
         // =================================================
 
         const targetDepartmentId =
-            parseInt(
+            Number(
                 target_department_id
             );
 
 
-        const evaluatorDepartmentIds =
-            evaluating_department_ids.map(
-                id =>
-                    parseInt(id)
-            );
-
-
-        // =================================================
-        // CHECK INVALID TARGET ID
-        // =================================================
-
         if (
-            Number.isNaN(
+            !Number.isInteger(
                 targetDepartmentId
-            )
+            ) ||
+            targetDepartmentId <= 0
         ) {
 
             throw new ApiError(
@@ -345,9 +330,18 @@ class SurveyService {
         }
 
 
-        // =================================================
-        // REMOVE DUPLICATE EVALUATORS
-        // =================================================
+        const evaluatorDepartmentIds =
+            evaluating_department_ids
+                .map(
+                    id =>
+                        Number(id)
+                )
+                .filter(
+                    id =>
+                        Number.isInteger(id) &&
+                        id > 0
+                );
+
 
         const uniqueEvaluatorIds =
             [
@@ -358,9 +352,7 @@ class SurveyService {
 
 
         // =================================================
-        // SELF EVALUATION CHECK
-        //
-        // Department cannot evaluate itself.
+        // SELF EVALUATION
         // =================================================
 
         if (
@@ -378,7 +370,7 @@ class SurveyService {
 
 
         // =================================================
-        // VERIFY TARGET DEPARTMENT
+        // VERIFY TARGET
         // =================================================
 
         const targetDepartment =
@@ -401,7 +393,7 @@ class SurveyService {
 
 
         // =================================================
-        // VERIFY EVALUATING DEPARTMENTS
+        // VERIFY EVALUATORS
         // =================================================
 
         for (
@@ -409,7 +401,7 @@ class SurveyService {
             of uniqueEvaluatorIds
         ) {
 
-            const evaluatorDepartment =
+            const evaluator =
                 await departmentRepository
                     .findById(
                         evaluatorId
@@ -417,12 +409,12 @@ class SurveyService {
 
 
             if (
-                !evaluatorDepartment
+                !evaluator
             ) {
 
                 throw new ApiError(
                     400,
-                    `Invalid evaluating department ID: ${evaluatorId}`
+                    `Invalid evaluating department: ${evaluatorId}`
                 );
 
             }
@@ -431,42 +423,163 @@ class SurveyService {
 
 
         // =================================================
-        // CREATE EVERYTHING IN ONE TRANSACTION
+        // SPECIAL PARAMETERS VALIDATION
         // =================================================
 
-        const newId =
+        let normalizedSpecialParameters =
+            [];
+
+
+        if (
+            survey_type === "special"
+        ) {
+
+            if (
+                !Array.isArray(
+                    special_parameters
+                )
+            ) {
+
+                throw new ApiError(
+                    400,
+                    "Special survey parameters are required"
+                );
+
+            }
+
+
+            normalizedSpecialParameters =
+                special_parameters
+
+                    .map(
+                        (
+                            parameter,
+                            index
+                        ) => {
+
+                            const parameterName =
+                                String(
+                                    parameter?.parameter_name ||
+                                    parameter?.name ||
+                                    ""
+                                ).trim();
+
+
+                            const description =
+                                parameter?.description
+                                    ? String(
+                                        parameter.description
+                                      ).trim()
+                                    : null;
+
+
+                            const importance =
+                                Number(
+                                    parameter?.importance ??
+                                    parameter?.weightage ??
+                                    5
+                                );
+
+
+                            return {
+
+                                parameter_name:
+                                    parameterName,
+
+                                description,
+
+                                importance:
+                                    Number.isFinite(
+                                        importance
+                                    )
+                                        ? importance
+                                        : 5,
+
+                                display_order:
+                                    Number(
+                                        parameter?.display_order
+                                    ) > 0
+                                        ? Number(
+                                            parameter.display_order
+                                          )
+                                        : index + 1,
+
+                                status:
+                                    parameter?.status ||
+                                    "active"
+
+                            };
+
+                        }
+                    )
+
+                    .filter(
+                        parameter =>
+                            parameter.parameter_name
+                                .length > 0
+                    );
+
+
+            if (
+                normalizedSpecialParameters.length === 0
+            ) {
+
+                throw new ApiError(
+                    400,
+                    "At least one special survey parameter is required"
+                );
+
+            }
+
+        }
+
+
+        // =================================================
+        // CREATE SURVEY
+        // =================================================
+
+        const surveyId =
             await surveyRepository
                 .createSurveyWithDepartments({
 
                     survey_name,
+
+                    survey_type,
 
                     start_date,
 
                     end_date,
 
                     status:
-                        status || "draft",
+                        status ||
+                        "draft",
 
-                    created_by:
-                        created_by,
+                    created_by,
 
                     target_department_id:
                         targetDepartmentId,
 
                     evaluating_department_ids:
-                        uniqueEvaluatorIds
+                        uniqueEvaluatorIds,
+
+                    special_parameters:
+                        normalizedSpecialParameters
 
                 });
 
 
         // =================================================
-        // RETURN CREATED SURVEY
+        // RETURN COMPLETE SURVEY
         // =================================================
 
-        return await surveyRepository
-            .findById(
-                newId
-            );
+        const createdSurvey =
+            await surveyRepository
+                .findById(
+                    surveyId
+                );
+
+
+        return createdSurvey;
 
     }
 
@@ -481,23 +594,29 @@ class SurveyService {
     ) {
 
         let {
+
             survey_name,
+
+            survey_type,
+
             start_date,
+
             end_date,
+
             status
+
         } = surveyData;
 
-
-        // =================================================
-        // ISO DATE → MYSQL DATE
-        // =================================================
 
         if (
             start_date
         ) {
 
             start_date =
-                start_date.split("T")[0];
+                String(
+                    start_date
+                )
+                    .split("T")[0];
 
         }
 
@@ -507,14 +626,13 @@ class SurveyService {
         ) {
 
             end_date =
-                end_date.split("T")[0];
+                String(
+                    end_date
+                )
+                    .split("T")[0];
 
         }
 
-
-        // =================================================
-        // REQUIRED FIELDS
-        // =================================================
 
         if (
             !survey_name ||
@@ -530,10 +648,6 @@ class SurveyService {
         }
 
 
-        // =================================================
-        // DATE VALIDATION
-        // =================================================
-
         if (
             new Date(start_date) >
             new Date(end_date)
@@ -546,10 +660,6 @@ class SurveyService {
 
         }
 
-
-        // =================================================
-        // CHECK SURVEY EXISTS
-        // =================================================
 
         const survey =
             await surveyRepository
@@ -570,16 +680,17 @@ class SurveyService {
         }
 
 
-        // =================================================
-        // UPDATE SURVEY
-        // =================================================
-
         await surveyRepository
             .update(
                 surveyId,
                 {
 
                     survey_name,
+
+                    survey_type:
+                        survey_type ||
+                        survey.survey_type ||
+                        "general",
 
                     start_date,
 
@@ -592,10 +703,6 @@ class SurveyService {
                 }
             );
 
-
-        // =================================================
-        // RETURN UPDATED SURVEY
-        // =================================================
 
         return await surveyRepository
             .findById(

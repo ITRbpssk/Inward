@@ -1,85 +1,373 @@
-const parameterRepository = require("../repositories/parameter.repository");
-const ApiError = require("../utils/ApiError");
+const parameterRepository =
+    require("../repositories/parameter.repository");
+
+const ApiError =
+    require("../utils/ApiError");
+
 
 class ParameterService {
+
+
+    // =====================================================
+    // GET ALL PARAMETERS
+    // =====================================================
+
     async getAllParameters() {
-        return await parameterRepository.findAll();
+
+        return await parameterRepository
+            .findAll();
+
     }
 
-    async getParameterById(parameterId) {
-        const param = await parameterRepository.findById(parameterId);
+
+    // =====================================================
+    // GET PARAMETER BY ID
+    // =====================================================
+
+    async getParameterById(
+        parameterId
+    ) {
+
+        const param =
+            await parameterRepository
+                .findById(
+                    parameterId
+                );
+
+
         if (!param) {
-            throw new ApiError(404, "Parameter not found");
+
+            throw new ApiError(
+                404,
+                "Parameter not found"
+            );
+
         }
+
+
         return param;
+
     }
 
-    async createParameter(paramData) {
-        const { parameter_name, description, display_order, weightage, status } = paramData;
 
-        if (!parameter_name) {
-            throw new ApiError(400, "parameter_name is required");
-        }
+    // =====================================================
+    // CREATE PARAMETER
+    //
+    // Weightage is NOT used.
+    //
+    // Importance for USI is always 5 and is handled
+    // during feedback calculation.
+    // =====================================================
 
-        // Validate weightage sums are within limit (e.g. total cannot exceed 100)
-        const params = await parameterRepository.findAll();
-        const activeParams = params.filter(p => p.status === "active");
-        const currentTotalWeight = activeParams.reduce((sum, p) => sum + parseFloat(p.weightage), 0);
-        
-        if (currentTotalWeight + parseFloat(weightage || 0) > 100.01) { // small tolerance for float addition
-            throw new ApiError(400, `Total weightage of active parameters cannot exceed 100%. Current sum: ${currentTotalWeight}%`);
-        }
+    async createParameter(
+        paramData
+    ) {
 
-        const newId = await parameterRepository.create({
+        const {
             parameter_name,
             description,
             display_order,
-            weightage,
             status
-        });
-        return await parameterRepository.findById(newId);
+        } = paramData;
+
+
+        // =================================================
+        // PARAMETER NAME
+        // =================================================
+
+        if (
+            !parameter_name ||
+            !String(parameter_name).trim()
+        ) {
+
+            throw new ApiError(
+                400,
+                "parameter_name is required"
+            );
+
+        }
+
+
+        // =================================================
+        // DISPLAY ORDER
+        // =================================================
+
+        const finalDisplayOrder =
+            display_order !== undefined
+                ? Number(display_order)
+                : 0;
+
+
+        if (
+            Number.isNaN(
+                finalDisplayOrder
+            ) ||
+            finalDisplayOrder < 0
+        ) {
+
+            throw new ApiError(
+                400,
+                "display_order must be a valid non-negative number"
+            );
+
+        }
+
+
+        // =================================================
+        // STATUS
+        // =================================================
+
+        const finalStatus =
+            status || "active";
+
+
+        if (
+            ![
+                "active",
+                "inactive"
+            ].includes(
+                finalStatus
+            )
+        ) {
+
+            throw new ApiError(
+                400,
+                "Invalid status. Must be active or inactive"
+            );
+
+        }
+
+
+        // =================================================
+        // CREATE
+        //
+        // Weightage intentionally not passed.
+        // =================================================
+
+        const newId =
+            await parameterRepository
+                .create({
+
+                    parameter_name:
+                        String(
+                            parameter_name
+                        ).trim(),
+
+                    description:
+                        description || null,
+
+                    display_order:
+                        finalDisplayOrder,
+
+                    status:
+                        finalStatus
+
+                });
+
+
+        return await parameterRepository
+            .findById(
+                newId
+            );
+
     }
 
-    async updateParameter(parameterId, paramData) {
-        const { parameter_name, description, display_order, weightage, status } = paramData;
 
-        if (!parameter_name) {
-            throw new ApiError(400, "parameter_name is required");
+    // =====================================================
+    // UPDATE PARAMETER
+    //
+    // Weightage is NOT used.
+    // =====================================================
+
+    async updateParameter(
+        parameterId,
+        paramData
+    ) {
+
+        const existing =
+            await parameterRepository
+                .findById(
+                    parameterId
+                );
+
+
+        if (!existing) {
+
+            throw new ApiError(
+                404,
+                "Parameter not found"
+            );
+
         }
 
-        const param = await parameterRepository.findById(parameterId);
-        if (!param) {
-            throw new ApiError(404, "Parameter not found");
-        }
 
-        // Check new total weightage sum
-        if (weightage !== undefined) {
-            const params = await parameterRepository.findAll();
-            const otherActiveParams = params.filter(p => p.status === "active" && p.parameter_id !== parseInt(parameterId));
-            const otherWeightSum = otherActiveParams.reduce((sum, p) => sum + parseFloat(p.weightage), 0);
-            
-            if (otherWeightSum + parseFloat(weightage) > 100.01) {
-                throw new ApiError(400, `Total weightage of active parameters cannot exceed 100%. Current sum without this parameter: ${otherWeightSum}%`);
-            }
-        }
-
-        await parameterRepository.update(parameterId, {
+        const {
             parameter_name,
             description,
             display_order,
-            weightage,
-            status: status || param.status
-        });
-        return await parameterRepository.findById(parameterId);
+            status
+        } = paramData;
+
+
+        // =================================================
+        // PARAMETER NAME
+        // =================================================
+
+        if (
+            parameter_name !== undefined &&
+            !String(
+                parameter_name
+            ).trim()
+        ) {
+
+            throw new ApiError(
+                400,
+                "parameter_name cannot be empty"
+            );
+
+        }
+
+
+        const finalParameterName =
+            parameter_name !== undefined
+                ? String(
+                    parameter_name
+                ).trim()
+                : existing.parameter_name;
+
+
+        // =================================================
+        // DESCRIPTION
+        // =================================================
+
+        const finalDescription =
+            description !== undefined
+                ? description
+                : existing.description;
+
+
+        // =================================================
+        // DISPLAY ORDER
+        // =================================================
+
+        const finalDisplayOrder =
+            display_order !== undefined
+                ? Number(display_order)
+                : existing.display_order;
+
+
+        if (
+            Number.isNaN(
+                finalDisplayOrder
+            ) ||
+            finalDisplayOrder < 0
+        ) {
+
+            throw new ApiError(
+                400,
+                "display_order must be a valid non-negative number"
+            );
+
+        }
+
+
+        // =================================================
+        // STATUS
+        // =================================================
+
+        const finalStatus =
+            status !== undefined
+                ? status
+                : existing.status;
+
+
+        if (
+            ![
+                "active",
+                "inactive"
+            ].includes(
+                finalStatus
+            )
+        ) {
+
+            throw new ApiError(
+                400,
+                "Invalid status. Must be active or inactive"
+            );
+
+        }
+
+
+        // =================================================
+        // UPDATE
+        // =================================================
+
+        await parameterRepository
+            .update(
+
+                parameterId,
+
+                {
+
+                    parameter_name:
+                        finalParameterName,
+
+                    description:
+                        finalDescription,
+
+                    display_order:
+                        finalDisplayOrder,
+
+                    status:
+                        finalStatus
+
+                }
+
+            );
+
+
+        return await parameterRepository
+            .findById(
+                parameterId
+            );
+
     }
 
-    async deleteParameter(parameterId) {
-        const param = await parameterRepository.findById(parameterId);
+
+    // =====================================================
+    // DELETE PARAMETER
+    // =====================================================
+
+    async deleteParameter(
+        parameterId
+    ) {
+
+        const param =
+            await parameterRepository
+                .findById(
+                    parameterId
+                );
+
+
         if (!param) {
-            throw new ApiError(404, "Parameter not found");
+
+            throw new ApiError(
+                404,
+                "Parameter not found"
+            );
+
         }
-        return await parameterRepository.delete(parameterId);
+
+
+        return await parameterRepository
+            .delete(
+                parameterId
+            );
+
     }
+
 }
 
-module.exports = new ParameterService();
+
+module.exports =
+    new ParameterService();

@@ -2,34 +2,54 @@ const { pool } =
     require("../config/db");
 
 
-class ParameterRepository {
+class SpecialParameterRepository {
 
 
     // =====================================================
-    // GET ALL PARAMETERS
+    // GET ALL PARAMETERS FOR SURVEY
     // =====================================================
 
-    async findAll() {
+    async findBySurveyId(
+        surveyId
+    ) {
 
         const query = `
             SELECT
+
+                survey_parameter_id,
+
+                survey_id,
+
                 parameter_id,
+
                 parameter_name,
+
                 description,
+
+                importance,
+
                 display_order,
+
                 status,
+
                 created_at,
+
                 updated_at
-            FROM parameters
+
+            FROM special_parameters
+
+            WHERE survey_id = ?
+
             ORDER BY
                 display_order ASC,
-                parameter_id ASC
+                survey_parameter_id ASC
         `;
 
 
         const [rows] =
             await pool.query(
-                query
+                query,
+                [surveyId]
             );
 
 
@@ -39,33 +59,46 @@ class ParameterRepository {
 
 
     // =====================================================
-    // GET PARAMETER BY ID
+    // GET BY ID
     // =====================================================
 
     async findById(
-        parameterId
+        surveyParameterId
     ) {
 
         const query = `
             SELECT
+
+                survey_parameter_id,
+
+                survey_id,
+
                 parameter_id,
+
                 parameter_name,
+
                 description,
+
+                importance,
+
                 display_order,
+
                 status,
+
                 created_at,
+
                 updated_at
-            FROM parameters
-            WHERE parameter_id = ?
+
+            FROM special_parameters
+
+            WHERE survey_parameter_id = ?
         `;
 
 
         const [rows] =
             await pool.query(
                 query,
-                [
-                    parameterId
-                ]
+                [surveyParameterId]
             );
 
 
@@ -75,7 +108,7 @@ class ParameterRepository {
 
 
     // =====================================================
-    // CREATE PARAMETER
+    // CREATE
     // =====================================================
 
     async create(
@@ -83,22 +116,37 @@ class ParameterRepository {
     ) {
 
         const {
+
+            survey_id,
+
+            parameter_id,
+
             parameter_name,
+
             description,
+
+            importance,
+
             display_order,
+
             status
+
         } = parameterData;
 
 
         const query = `
-            INSERT INTO parameters
+            INSERT INTO special_parameters
             (
+                survey_id,
+                parameter_id,
                 parameter_name,
                 description,
+                importance,
                 display_order,
                 status
             )
-            VALUES (?, ?, ?, ?)
+
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
 
 
@@ -107,13 +155,24 @@ class ParameterRepository {
                 query,
                 [
 
+                    survey_id,
+
+                    parameter_id ||
+                        null,
+
                     parameter_name,
 
-                    description || null,
+                    description ||
+                        null,
 
-                    display_order ?? 0,
+                    importance ??
+                        5,
 
-                    status || "active"
+                    display_order ??
+                        0,
+
+                    status ||
+                        "active"
 
                 ]
             );
@@ -125,32 +184,45 @@ class ParameterRepository {
 
 
     // =====================================================
-    // UPDATE PARAMETER
+    // UPDATE
     // =====================================================
 
     async update(
-        parameterId,
+        surveyParameterId,
         parameterData
     ) {
 
         const {
+
             parameter_name,
+
             description,
+
+            importance,
+
             display_order,
+
             status
+
         } = parameterData;
 
 
         const query = `
-            UPDATE parameters
+            UPDATE special_parameters
 
             SET
+
                 parameter_name = ?,
+
                 description = ?,
+
+                importance = ?,
+
                 display_order = ?,
+
                 status = ?
 
-            WHERE parameter_id = ?
+            WHERE survey_parameter_id = ?
         `;
 
 
@@ -161,53 +233,88 @@ class ParameterRepository {
 
                     parameter_name,
 
-                    description || null,
+                    description ||
+                        null,
 
-                    display_order ?? 0,
+                    importance ??
+                        5,
 
-                    status || "active",
+                    display_order ??
+                        0,
 
-                    parameterId
+                    status ||
+                        "active",
+
+                    surveyParameterId
 
                 ]
             );
 
 
-        return result.affectedRows > 0;
+        return (
+            result.affectedRows > 0
+        );
 
     }
 
 
     // =====================================================
-    // DELETE PARAMETER
+    // DELETE
     // =====================================================
 
     async delete(
-        parameterId
+        surveyParameterId
     ) {
 
         const query = `
-            DELETE FROM parameters
-            WHERE parameter_id = ?
+            DELETE FROM special_parameters
+
+            WHERE survey_parameter_id = ?
         `;
 
 
         const [result] =
             await pool.query(
                 query,
-                [
-                    parameterId
-                ]
+                [surveyParameterId]
             );
 
 
-        return result.affectedRows > 0;
+        return (
+            result.affectedRows > 0
+        );
 
     }
 
+
+    // =====================================================
+    // DELETE BY SURVEY
+    // =====================================================
+
+    async deleteBySurveyId(
+        surveyId
+    ) {
+
+        const query = `
+            DELETE FROM special_parameters
+
+            WHERE survey_id = ?
+        `;
+
+
+        const [result] =
+            await pool.query(
+                query,
+                [surveyId]
+            );
+
+
+        return result.affectedRows;
+
+    }
 
 }
 
 
 module.exports =
-    new ParameterRepository();
+    new SpecialParameterRepository();

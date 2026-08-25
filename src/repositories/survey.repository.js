@@ -14,45 +14,53 @@ class SurveyRepository {
             ORDER BY survey_id DESC
         `;
 
-        const [rows] = await pool.query(query);
+        const [rows] =
+            await pool.query(query);
 
         return rows;
     }
 
 
+    // =====================================================
+    // GET SURVEYS CREATED BY USER
+    // =====================================================
 
     async findByCreatedBy(userId) {
 
-    const [rows] =
-        await pool.query(
-            `
+        const query = `
             SELECT *
             FROM surveys
             WHERE created_by = ?
             ORDER BY survey_id DESC
-            `,
-            [userId]
-        );
+        `;
 
-    return rows;
+        const [rows] =
+            await pool.query(
+                query,
+                [userId]
+            );
 
-}
+        return rows;
+    }
+
 
     // =====================================================
     // GET SURVEYS BY TARGET DEPARTMENT
-    //
-    // Used when a department is the target department
     // =====================================================
 
-    async findSurveysByDepartmentId(departmentId) {
+    async findSurveysByDepartmentId(
+        departmentId
+    ) {
 
         const query = `
             SELECT
                 s.survey_id,
                 s.survey_name,
+                s.survey_type,
                 s.start_date,
                 s.end_date,
                 s.status,
+                s.created_by,
 
                 sd.survey_department_id,
                 sd.department_id,
@@ -85,39 +93,37 @@ class SurveyRepository {
 
     // =====================================================
     // GET SURVEYS WHERE CURRENT DEPARTMENT IS EVALUATOR
-    //
-    // Example:
-    //
-    // HR evaluates IT
-    //
-    // HR HOD logs in
-    //     ↓
-    // HR is from_department
-    //     ↓
-    // IT is to_department
-    //
-    // Only surveys assigned to HR as evaluator are returned.
     // =====================================================
 
-    async findSurveysByEvaluatorDepartmentId(departmentId) {
+    async findSurveysByEvaluatorDepartmentId(
+        departmentId
+    ) {
 
         const query = `
             SELECT
                 s.survey_id,
                 s.survey_name,
+                s.survey_type,
                 s.start_date,
                 s.end_date,
                 s.status,
+                s.created_by,
 
                 dm.mapping_id,
                 dm.from_department_id,
                 dm.to_department_id,
 
-                target.department_code AS target_department_code,
-                target.department_name AS target_department_name,
+                target.department_code
+                    AS target_department_code,
 
-                evaluator.department_code AS evaluator_department_code,
-                evaluator.department_name AS evaluator_department_name
+                target.department_name
+                    AS target_department_name,
+
+                evaluator.department_code
+                    AS evaluator_department_code,
+
+                evaluator.department_name
+                    AS evaluator_department_name
 
             FROM department_mappings dm
 
@@ -125,14 +131,19 @@ class SurveyRepository {
                 ON dm.survey_id = s.survey_id
 
             INNER JOIN departments evaluator
-                ON dm.from_department_id = evaluator.department_id
+                ON dm.from_department_id =
+                   evaluator.department_id
 
             INNER JOIN departments target
-                ON dm.to_department_id = target.department_id
+                ON dm.to_department_id =
+                   target.department_id
 
             WHERE dm.from_department_id = ?
+
               AND dm.status = 'active'
+
               AND evaluator.status = 'active'
+
               AND target.status = 'active'
 
             ORDER BY s.survey_id DESC
@@ -150,32 +161,84 @@ class SurveyRepository {
 
     // =====================================================
     // GET SURVEY BY ID
+    //
+    // ALSO RETURNS SPECIAL PARAMETERS
     // =====================================================
 
-    async findById(surveyId) {
+    async findById(
+        surveyId
+    ) {
 
-        const query = `
+        const surveyQuery = `
             SELECT *
             FROM surveys
             WHERE survey_id = ?
         `;
 
-        const [rows] =
+        const [surveyRows] =
             await pool.query(
-                query,
+                surveyQuery,
                 [surveyId]
             );
 
-        return rows[0] || null;
+        if (
+            surveyRows.length === 0
+        ) {
+
+            return null;
+
+        }
+
+        const survey =
+            surveyRows[0];
+
+
+        // =================================================
+        // SPECIAL PARAMETERS
+        // =================================================
+
+        const specialParameterQuery = `
+            SELECT
+                survey_parameter_id,
+                survey_id,
+                parameter_id,
+                parameter_name,
+                description,
+                importance,
+                display_order,
+                status,
+                created_at,
+                updated_at
+
+            FROM special_parameters
+
+            WHERE survey_id = ?
+
+            ORDER BY
+                display_order ASC,
+                survey_parameter_id ASC
+        `;
+
+
+        const [specialParameters] =
+            await pool.query(
+                specialParameterQuery,
+                [surveyId]
+            );
+
+
+        survey.special_parameters =
+            specialParameters;
+
+
+        return survey;
     }
 
 
     // =====================================================
     // GET ONE ACTIVE SURVEY
     //
-    // BACKWARD COMPATIBILITY
-    //
-    // Returns latest active survey.
+    // ALSO RETURNS SPECIAL PARAMETERS
     // =====================================================
 
     async findActiveSurvey() {
@@ -184,15 +247,71 @@ class SurveyRepository {
             SELECT *
             FROM surveys
             WHERE status = 'active'
-              AND CURDATE() BETWEEN start_date AND end_date
+
+              AND CURDATE()
+                  BETWEEN start_date AND end_date
+
             ORDER BY survey_id DESC
+
             LIMIT 1
         `;
 
         const [rows] =
             await pool.query(query);
 
-        return rows[0] || null;
+
+        if (
+            rows.length === 0
+        ) {
+
+            return null;
+
+        }
+
+
+        const survey =
+            rows[0];
+
+
+        // =================================================
+        // LOAD SPECIAL PARAMETERS
+        // =================================================
+
+        const specialQuery = `
+            SELECT
+                survey_parameter_id,
+                survey_id,
+                parameter_id,
+                parameter_name,
+                description,
+                importance,
+                display_order,
+                status,
+                created_at,
+                updated_at
+
+            FROM special_parameters
+
+            WHERE survey_id = ?
+
+            ORDER BY
+                display_order ASC,
+                survey_parameter_id ASC
+        `;
+
+
+        const [specialParameters] =
+            await pool.query(
+                specialQuery,
+                [survey.survey_id]
+            );
+
+
+        survey.special_parameters =
+            specialParameters;
+
+
+        return survey;
     }
 
 
@@ -206,229 +325,419 @@ class SurveyRepository {
             SELECT *
             FROM surveys
             WHERE status = 'active'
-              AND CURDATE() BETWEEN start_date AND end_date
+
+              AND CURDATE()
+                  BETWEEN start_date AND end_date
+
             ORDER BY survey_id DESC
         `;
 
         const [rows] =
             await pool.query(query);
 
+
+        // =================================================
+        // LOAD SPECIAL PARAMETERS FOR EACH SURVEY
+        // =================================================
+
+        for (
+            const survey
+            of rows
+        ) {
+
+            const specialQuery = `
+                SELECT
+                    survey_parameter_id,
+                    survey_id,
+                    parameter_id,
+                    parameter_name,
+                    description,
+                    importance,
+                    display_order,
+                    status,
+                    created_at,
+                    updated_at
+
+                FROM special_parameters
+
+                WHERE survey_id = ?
+
+                ORDER BY
+                    display_order ASC,
+                    survey_parameter_id ASC
+            `;
+
+
+            const [
+                specialParameters
+            ] =
+                await pool.query(
+                    specialQuery,
+                    [survey.survey_id]
+                );
+
+
+            survey.special_parameters =
+                specialParameters;
+
+        }
+
+
         return rows;
     }
 
 
     // =====================================================
-    // CREATE SURVEY
-    //
-    // OLD / BACKWARD COMPATIBILITY METHOD
-    //
-    // This creates only the survey record.
-    //
-    // New Create Survey flow should use:
-    // createSurveyWithDepartments()
+    // OLD CREATE
     // =====================================================
 
-    async create(surveyData) {
+    async create(
+        surveyData
+    ) {
 
         const {
             survey_name,
+            survey_type,
             start_date,
             end_date,
-            status
+            status,
+            created_by
         } = surveyData;
+
 
         const query = `
             INSERT INTO surveys
             (
                 survey_name,
+                survey_type,
                 start_date,
                 end_date,
-                status
+                status,
+                created_by
             )
-            VALUES (?, ?, ?, ?)
+
+            VALUES (?, ?, ?, ?, ?, ?)
         `;
+
 
         const [result] =
             await pool.query(
                 query,
                 [
                     survey_name,
+                    survey_type || "general",
                     start_date,
                     end_date,
-                    status || "draft"
+                    status || "draft",
+                    created_by || null
                 ]
             );
+
 
         return result.insertId;
     }
 
 
     // =====================================================
-    // CREATE SURVEY WITH DEPARTMENT ASSIGNMENT
+    // CREATE SURVEY WITH DEPARTMENTS
     //
-    // This is the NEW main Create Survey method.
+    // IMPORTANT:
     //
-    // Flow:
-    //
-    // 1. Create survey
-    //
-    // 2. Save target department
-    //    survey_departments
-    //
-    // 3. Save evaluating departments
-    //    department_mappings
-    //
-    // Everything happens inside ONE transaction.
+    // This now also creates special_parameters.
     // =====================================================
-async createSurveyWithDepartments(surveyData) {
 
-    const {
-        survey_name,
-        start_date,
-        end_date,
-        status,
-        created_by,
-        target_department_id,
-        evaluating_department_ids
-    } = surveyData;
+    async createSurveyWithDepartments(
+        surveyData
+    ) {
 
-
-    const connection =
-        await pool.getConnection();
-
-
-    try {
-
-        // =================================================
-        // START TRANSACTION
-        // =================================================
-
-        await connection.beginTransaction();
+        const {
+            survey_name,
+            survey_type,
+            start_date,
+            end_date,
+            status,
+            created_by,
+            target_department_id,
+            evaluating_department_ids,
+            special_parameters
+        } = surveyData;
 
 
-        // =================================================
-        // 1. CREATE SURVEY
-        // =================================================
-
-        const surveyQuery = `
-            INSERT INTO surveys
-            (
-                survey_name,
-                start_date,
-                end_date,
-                status,
-                created_by
-            )
-            VALUES (?, ?, ?, ?, ?)
-        `;
+        const connection =
+            await pool.getConnection();
 
 
-        const [surveyResult] =
-            await connection.query(
-                surveyQuery,
-                [
+        try {
+
+            // =================================================
+            // TRANSACTION START
+            // =================================================
+
+            await connection.beginTransaction();
+
+
+            // =================================================
+            // 1. CREATE SURVEY
+            // =================================================
+
+            const surveyQuery = `
+                INSERT INTO surveys
+                (
                     survey_name,
+                    survey_type,
                     start_date,
                     end_date,
-                    status || "draft",
+                    status,
                     created_by
-                ]
-            );
+                )
+
+                VALUES (?, ?, ?, ?, ?, ?)
+            `;
 
 
-        const surveyId =
-            surveyResult.insertId;
+            const [surveyResult] =
+                await connection.query(
+                    surveyQuery,
+                    [
+                        survey_name,
+
+                        survey_type ||
+                            "general",
+
+                        start_date,
+
+                        end_date,
+
+                        status ||
+                            "draft",
+
+                        created_by ||
+                            null
+                    ]
+                );
 
 
-        // =================================================
-        // 2. SAVE TARGET DEPARTMENT
-        // =================================================
-
-        const targetDepartmentQuery = `
-            INSERT INTO survey_departments
-            (
-                survey_id,
-                department_id
-            )
-            VALUES (?, ?)
-        `;
+            const surveyId =
+                surveyResult.insertId;
 
 
-        await connection.query(
-            targetDepartmentQuery,
-            [
-                surveyId,
-                target_department_id
-            ]
-        );
+            // =================================================
+            // 2. SAVE TARGET DEPARTMENT
+            // =================================================
 
+            const targetQuery = `
+                INSERT INTO survey_departments
+                (
+                    survey_id,
+                    department_id
+                )
 
-        // =================================================
-        // 3. SAVE EVALUATING DEPARTMENTS
-        // =================================================
+                VALUES (?, ?)
+            `;
 
-        const mappingQuery = `
-            INSERT INTO department_mappings
-            (
-                survey_id,
-                from_department_id,
-                to_department_id,
-                status
-            )
-            VALUES (?, ?, ?, ?)
-        `;
-
-
-        for (
-            const evaluatingDepartmentId
-            of evaluating_department_ids
-        ) {
 
             await connection.query(
-                mappingQuery,
+                targetQuery,
                 [
                     surveyId,
-                    evaluatingDepartmentId,
-                    target_department_id,
-                    "active"
+                    target_department_id
                 ]
             );
+
+
+            // =================================================
+            // 3. SAVE EVALUATING DEPARTMENTS
+            // =================================================
+
+            const mappingQuery = `
+                INSERT INTO department_mappings
+                (
+                    survey_id,
+                    from_department_id,
+                    to_department_id,
+                    status
+                )
+
+                VALUES (?, ?, ?, ?)
+            `;
+
+
+            const evaluatorIds =
+                Array.isArray(
+                    evaluating_department_ids
+                )
+                    ? evaluating_department_ids
+                    : [];
+
+
+            for (
+                const evaluatorId
+                of evaluatorIds
+            ) {
+
+                await connection.query(
+                    mappingQuery,
+                    [
+                        surveyId,
+
+                        evaluatorId,
+
+                        target_department_id,
+
+                        "active"
+                    ]
+                );
+
+            }
+
+
+            // =================================================
+            // 4. SAVE SPECIAL PARAMETERS
+            //
+            // ONLY FOR SPECIAL SURVEY
+            // =================================================
+
+            const normalizedSurveyType =
+                String(
+                    survey_type ||
+                    "general"
+                )
+                    .toLowerCase()
+                    .trim();
+
+
+            if (
+                normalizedSurveyType ===
+                    "special" &&
+                Array.isArray(
+                    special_parameters
+                )
+            ) {
+
+                const specialQuery = `
+                    INSERT INTO special_parameters
+                    (
+                        survey_id,
+                        parameter_id,
+                        parameter_name,
+                        description,
+                        importance,
+                        display_order,
+                        status
+                    )
+
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                `;
+
+
+                let displayOrder = 1;
+
+
+                for (
+                    const parameter
+                    of special_parameters
+                ) {
+
+                    const name =
+                        String(
+                            parameter?.parameter_name ||
+                            parameter?.name ||
+                            ""
+                        ).trim();
+
+
+                    if (!name) {
+
+                        continue;
+
+                    }
+
+
+                    const description =
+                        parameter?.description
+                            ? String(
+                                parameter.description
+                              ).trim()
+                            : null;
+
+
+                    const importance =
+                        Number(
+                            parameter?.importance ??
+                            parameter?.weightage ??
+                            5
+                        );
+
+
+                    await connection.query(
+                        specialQuery,
+                        [
+                            surveyId,
+
+                            null,
+
+                            name,
+
+                            description,
+
+                            Number.isFinite(
+                                importance
+                            )
+                                ? importance
+                                : 5,
+
+                            Number(
+                                parameter?.display_order
+                            ) > 0
+                                ? Number(
+                                    parameter.display_order
+                                  )
+                                : displayOrder,
+
+                            String(
+                                parameter?.status ||
+                                "active"
+                            )
+                        ]
+                    );
+
+
+                    displayOrder++;
+
+                }
+
+            }
+
+
+            // =================================================
+            // COMMIT
+            // =================================================
+
+            await connection.commit();
+
+
+            return surveyId;
+
+
+        } catch (error) {
+
+            // =================================================
+            // ROLLBACK
+            // =================================================
+
+            await connection.rollback();
+
+            throw error;
+
+
+        } finally {
+
+            connection.release();
 
         }
 
-
-        // =================================================
-        // COMMIT TRANSACTION
-        // =================================================
-
-        await connection.commit();
-
-
-        return surveyId;
-
-
-    } catch (error) {
-
-        // =================================================
-        // ROLLBACK
-        // =================================================
-
-        await connection.rollback();
-
-        throw error;
-
-
-    } finally {
-
-        // =================================================
-        // RELEASE CONNECTION
-        // =================================================
-
-        connection.release();
-
     }
 
-}
 
     // =====================================================
     // UPDATE SURVEY
@@ -441,16 +750,19 @@ async createSurveyWithDepartments(surveyData) {
 
         const {
             survey_name,
+            survey_type,
             start_date,
             end_date,
             status
         } = surveyData;
+
 
         const query = `
             UPDATE surveys
 
             SET
                 survey_name = ?,
+                survey_type = ?,
                 start_date = ?,
                 end_date = ?,
                 status = ?
@@ -458,19 +770,30 @@ async createSurveyWithDepartments(surveyData) {
             WHERE survey_id = ?
         `;
 
+
         const [result] =
             await pool.query(
                 query,
                 [
                     survey_name,
+
+                    survey_type ||
+                        "general",
+
                     start_date,
+
                     end_date,
+
                     status,
+
                     surveyId
                 ]
             );
 
-        return result.affectedRows > 0;
+
+        return (
+            result.affectedRows > 0
+        );
     }
 
 
@@ -478,118 +801,179 @@ async createSurveyWithDepartments(surveyData) {
     // DELETE SURVEY
     // =====================================================
 
-    async delete(surveyId) {
+    async delete(
+        surveyId
+    ) {
 
-        const query = `
-            DELETE FROM surveys
-            WHERE survey_id = ?
-        `;
+        const connection =
+            await pool.getConnection();
 
-        const [result] =
-            await pool.query(
-                query,
+
+        try {
+
+            await connection.beginTransaction();
+
+
+            // =================================================
+            // DELETE SPECIAL PARAMETERS FIRST
+            // =================================================
+
+            await connection.query(
+                `
+                    DELETE FROM special_parameters
+                    WHERE survey_id = ?
+                `,
                 [surveyId]
             );
 
-        return result.affectedRows > 0;
+
+            // =================================================
+            // DELETE MAPPINGS
+            // =================================================
+
+            await connection.query(
+                `
+                    DELETE FROM department_mappings
+                    WHERE survey_id = ?
+                `,
+                [surveyId]
+            );
+
+
+            // =================================================
+            // DELETE SURVEY DEPARTMENTS
+            // =================================================
+
+            await connection.query(
+                `
+                    DELETE FROM survey_departments
+                    WHERE survey_id = ?
+                `,
+                [surveyId]
+            );
+
+
+            // =================================================
+            // DELETE SURVEY
+            // =================================================
+
+            const [
+                result
+            ] =
+                await connection.query(
+                    `
+                        DELETE FROM surveys
+                        WHERE survey_id = ?
+                    `,
+                    [surveyId]
+                );
+
+
+            await connection.commit();
+
+
+            return (
+                result.affectedRows > 0
+            );
+
+
+        } catch (error) {
+
+            await connection.rollback();
+
+            throw error;
+
+        } finally {
+
+            connection.release();
+
+        }
+
     }
 
 
-
-
-
-
-
-
-
-
-
     // =====================================================
-// GET MY SURVEYS
-//
-// HOD/HR sees:
-// 1. Surveys where own department is evaluator
-// 2. Surveys created by the logged-in HOD
-//
-// Example:
-//
-// IT HOD creates:
-// New 2
-// Target = IT
-// Evaluator = HR
-//
-// IT HOD -> sees New 2
-// HR HOD -> sees New 2
-// =====================================================
+    // GET MY SURVEYS
+    // =====================================================
 
-async findMySurveys(
-    departmentId,
-    userId
-) {
+    async findMySurveys(
+        departmentId,
+        userId
+    ) {
 
-    const query = `
-        SELECT DISTINCT
-            s.survey_id,
-            s.survey_name,
-            s.start_date,
-            s.end_date,
-            s.status,
-            s.created_by,
+        const query = `
+            SELECT DISTINCT
 
-            dm.mapping_id,
-            dm.from_department_id,
-            dm.to_department_id,
+                s.survey_id,
+                s.survey_name,
+                s.survey_type,
+                s.start_date,
+                s.end_date,
+                s.status,
+                s.created_by,
 
-            target.department_code
-                AS target_department_code,
+                dm.mapping_id,
+                dm.from_department_id,
+                dm.to_department_id,
 
-            target.department_name
-                AS target_department_name,
+                target.department_code
+                    AS target_department_code,
 
-            evaluator.department_code
-                AS evaluator_department_code,
+                target.department_name
+                    AS target_department_name,
 
-            evaluator.department_name
-                AS evaluator_department_name
+                evaluator.department_code
+                    AS evaluator_department_code,
 
-        FROM surveys s
+                evaluator.department_name
+                    AS evaluator_department_name
 
-        LEFT JOIN department_mappings dm
-            ON dm.survey_id = s.survey_id
-           AND dm.status = 'active'
+            FROM surveys s
 
-        LEFT JOIN departments evaluator
-            ON dm.from_department_id =
-               evaluator.department_id
+            LEFT JOIN department_mappings dm
+                ON dm.survey_id =
+                   s.survey_id
 
-        LEFT JOIN departments target
-            ON dm.to_department_id =
-               target.department_id
+               AND dm.status =
+                   'active'
 
-        WHERE
-            (
-                dm.from_department_id = ?
-                OR
-                s.created_by = ?
-            )
+            LEFT JOIN departments evaluator
+                ON dm.from_department_id =
+                   evaluator.department_id
 
-        ORDER BY
-            s.survey_id DESC
-    `;
+            LEFT JOIN departments target
+                ON dm.to_department_id =
+                   target.department_id
 
-    const [rows] =
-        await pool.query(
-            query,
-            [
-                departmentId,
-                userId
-            ]
-        );
+            WHERE
+                (
+                    dm.from_department_id = ?
 
-    return rows;
-}
+                    OR
+
+                    s.created_by = ?
+                )
+
+            ORDER BY
+                s.survey_id DESC
+        `;
+
+
+        const [rows] =
+            await pool.query(
+                query,
+                [
+                    departmentId,
+                    userId
+                ]
+            );
+
+
+        return rows;
+    }
 
 }
 
 
-module.exports = new SurveyRepository();
+module.exports =
+    new SurveyRepository();

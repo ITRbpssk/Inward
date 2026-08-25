@@ -14,7 +14,8 @@ const reportRoutes = require("./report.routes");
 const surveyDepartmentRoutes = require("./surveyDepartment.routes");
 const roleRoutes = require("./role.routes");
 const profileRoutes = require("./profile.routes");
-
+const specialParameterRoutes =
+    require("./specialParameter.routes");
 
 // Route mappings
 router.use("/auth", authRoutes);
@@ -29,5 +30,5 @@ router.use("/reports", reportRoutes);
 router.use("/survey-departments", surveyDepartmentRoutes);
 router.use("/roles", roleRoutes);
 router.use("/profile", profileRoutes);
-
+router.use("/special-parameters", specialParameterRoutes);
 module.exports = router;

@@ -13,6 +13,9 @@ const surveyRepository =
 const parameterRepository =
     require("../repositories/parameter.repository");
 
+const specialParameterRepository =
+    require("../repositories/specialParameter.repository");
+
 const ApiError =
     require("../utils/ApiError");
 
@@ -22,15 +25,31 @@ class FeedbackService {
 
     // =====================================================
     // USI CALCULATION
+    //
+    // Importance = 5
+    // Rating = 1 to 5
+    //
+    // Score = Importance × Rating
+    //
+    // Maximum Score =
+    // Active Parameters × 5 × 5
+    //
+    // USI =
+    // Total Score / Maximum Score × 100
     // =====================================================
 
-    calculateUSI(ratings, activeParams) {
+    calculateUSI(
+        ratings,
+        activeParams
+    ) {
 
         const IMPORTANCE = 5;
         const MAX_RATING = 5;
 
+
         const maximumScorePerParameter =
             IMPORTANCE * MAX_RATING;
+
 
         const maximumTotalScore =
             maximumScorePerParameter *
@@ -38,40 +57,56 @@ class FeedbackService {
 
 
         const calculatedRatings =
-            ratings.map(item => {
+            ratings.map(
+                item => {
 
-                const rating =
-                    parseInt(item.rating);
+                    const rating =
+                        parseInt(
+                            item.rating,
+                            10
+                        );
 
-                const score =
-                    IMPORTANCE * rating;
 
-                return {
+                    const score =
+                        IMPORTANCE *
+                        rating;
 
-                    ...item,
 
-                    importance:
-                        IMPORTANCE,
+                    return {
 
-                    score:
-                        score
+                        ...item,
 
-                };
+                        importance:
+                            IMPORTANCE,
 
-            });
+                        score:
+                            score
+
+                    };
+
+                }
+            );
 
 
         const totalScore =
             calculatedRatings.reduce(
-                (sum, item) =>
-                    sum + item.score,
+                (
+                    sum,
+                    item
+                ) =>
+                    sum +
+                    item.score,
+
                 0
             );
 
 
         const usiPercentage =
             maximumTotalScore > 0
-                ? (totalScore / maximumTotalScore) * 100
+                ? (
+                    totalScore /
+                    maximumTotalScore
+                ) * 100
                 : 0;
 
 
@@ -97,18 +132,83 @@ class FeedbackService {
 
 
     // =====================================================
+    // GET ACTIVE PARAMETERS FOR SURVEY
+    //
+    // GENERAL SURVEY
+    //     parameters table
+    //
+    // SPECIAL SURVEY
+    //     special_parameters table
+    // =====================================================
+
+    async getActiveParametersForSurvey(
+        survey
+    ) {
+
+        if (!survey) {
+
+            throw new ApiError(
+                404,
+                "Survey not found"
+            );
+
+        }
+
+
+        // =================================================
+        // SPECIAL SURVEY
+        // =================================================
+
+        if (
+            String(
+                survey.survey_type || ""
+            ).toLowerCase() === "special"
+        ) {
+
+            const specialParameters =
+                await specialParameterRepository
+                    .findBySurveyId(
+                        survey.survey_id
+                    );
+
+
+            return specialParameters.filter(
+                parameter =>
+                    parameter.status === "active"
+            );
+
+        }
+
+
+        // =================================================
+        // GENERAL SURVEY
+        // =================================================
+
+        const parameters =
+            await parameterRepository
+                .findAll();
+
+
+        return parameters.filter(
+            parameter =>
+                parameter.status === "active"
+        );
+
+    }
+
+
+    // =====================================================
     // GET FEEDBACK BY ID
     //
     // ADMIN:
-    // Can view feedback.
+    //     Can view feedback.
     //
     // HOD:
-    // Can view when:
+    //     Can view if:
     //
-    // 1. HOD created the survey
-    // 2. HOD submitted the feedback
-    // 3. HOD belongs to evaluator department and
-    //    active mapping exists
+    //     1. Survey creator
+    //     2. Feedback submitter
+    //     3. Active evaluator mapping exists
     // =====================================================
 
     async getFeedbackById(
@@ -119,7 +219,9 @@ class FeedbackService {
 
         const feedback =
             await feedbackRepository
-                .findById(feedbackId);
+                .findById(
+                    feedbackId
+                );
 
 
         if (!feedback) {
@@ -133,64 +235,86 @@ class FeedbackService {
 
 
         // =================================================
+        // GET SURVEY
+        // =================================================
+
+        const survey =
+            await surveyRepository
+                .findById(
+                    feedback.survey_id
+                );
+
+
+        if (!survey) {
+
+            throw new ApiError(
+                404,
+                "Survey not found"
+            );
+
+        }
+
+
+        // =================================================
         // HOD AUTHORIZATION
         // =================================================
 
         if (
-            String(roleName || "").toUpperCase() === "HOD"
+            String(
+                roleName || ""
+            ).toUpperCase() === "HOD"
         ) {
 
-            const survey =
-                await surveyRepository
-                    .findById(
-                        feedback.survey_id
-                    );
-
-
-            if (!survey) {
-
-                throw new ApiError(
-                    404,
-                    "Survey not found"
-                );
-
-            }
-
-
             // ---------------------------------------------
-            // CASE 1:
-            // Survey creator
+            // CASE 1: SURVEY CREATOR
             // ---------------------------------------------
 
             const isCreator =
-                Number(survey.created_by) ===
-                Number(userId);
+                Number(
+                    survey.created_by
+                ) ===
+                Number(
+                    userId
+                );
 
 
             // ---------------------------------------------
-            // CASE 2:
-            // Feedback submitter
+            // CASE 2: FEEDBACK SUBMITTER
             // ---------------------------------------------
 
             const isSubmitter =
-                Number(feedback.submitted_by) ===
-                Number(userId);
+                Number(
+                    feedback.submitted_by
+                ) ===
+                Number(
+                    userId
+                );
 
 
             // ---------------------------------------------
-            // CASE 3:
-            // Active evaluator mapping
+            // CASE 3: ACTIVE EVALUATOR MAPPING
             // ---------------------------------------------
 
-            let hasActiveMapping = false;
+            let hasActiveMapping =
+                false;
 
 
             const mapping =
                 await departmentMappingRepository
                     .findByFromAndTo(
-                        Number(feedback.survey_id),
-                        Number(feedback.from_department_id),
-                        Number(feedback.to_department_id)
+
+                        Number(
+                            feedback.survey_id
+                        ),
+
+                        Number(
+                            feedback.from_department_id
+                        ),
+
+                        Number(
+                            feedback.to_department_id
+                        )
+
                     );
 
 
@@ -199,7 +323,8 @@ class FeedbackService {
                 mapping.status === "active"
             ) {
 
-                hasActiveMapping = true;
+                hasActiveMapping =
+                    true;
 
             }
 
@@ -228,17 +353,17 @@ class FeedbackService {
             );
 
             console.log(
-                "FEEDBACK FROM DEPARTMENT:",
+                "FROM DEPARTMENT:",
                 feedback.from_department_id
             );
 
             console.log(
-                "FEEDBACK TO DEPARTMENT:",
+                "TO DEPARTMENT:",
                 feedback.to_department_id
             );
 
             console.log(
-                "FEEDBACK SUBMITTED BY:",
+                "SUBMITTED BY:",
                 feedback.submitted_by
             );
 
@@ -293,15 +418,9 @@ class FeedbackService {
         // GET ACTIVE PARAMETERS
         // =================================================
 
-        const parameters =
-            await parameterRepository
-                .findAll();
-
-
         const activeParams =
-            parameters.filter(
-                p =>
-                    p.status === "active"
+            await this.getActiveParametersForSurvey(
+                survey
             );
 
 
@@ -319,6 +438,9 @@ class FeedbackService {
         return {
 
             ...feedback,
+
+            survey_type:
+                survey.survey_type,
 
             ratings:
                 usi.ratings,
@@ -338,10 +460,7 @@ class FeedbackService {
 
 
     // =====================================================
-    // ADMIN - EVALUATION STATUS
-    //
-    // ADMIN can see all target departments mapped from
-    // the selected evaluating department for a survey.
+    // ADMIN - FEEDBACK STATUS
     // =====================================================
 
     async getFeedbackStatusForAdmin(
@@ -373,9 +492,6 @@ class FeedbackService {
 
     // =====================================================
     // ADMIN - FEEDBACK DETAILS
-    //
-    // ADMIN can view feedback between the selected
-    // evaluating department and target department.
     // =====================================================
 
     async getFeedbackDetailsForAdmin(
@@ -398,12 +514,49 @@ class FeedbackService {
         }
 
 
+        // =================================================
+        // GET SURVEY
+        // =================================================
+
+        const survey =
+            await surveyRepository
+                .findById(
+                    Number(
+                        surveyId
+                    )
+                );
+
+
+        if (!survey) {
+
+            throw new ApiError(
+                404,
+                "Survey not found"
+            );
+
+        }
+
+
+        // =================================================
+        // GET FEEDBACK
+        // =================================================
+
         const feedback =
             await feedbackRepository
                 .findBySurveyAndDepts(
-                    surveyId,
-                    fromDeptId,
-                    toDeptId
+
+                    Number(
+                        surveyId
+                    ),
+
+                    Number(
+                        fromDeptId
+                    ),
+
+                    Number(
+                        toDeptId
+                    )
+
                 );
 
 
@@ -414,6 +567,10 @@ class FeedbackService {
         }
 
 
+        // =================================================
+        // GET RATINGS
+        // =================================================
+
         const ratings =
             await feedbackDetailRepository
                 .findByFeedbackId(
@@ -421,17 +578,19 @@ class FeedbackService {
                 );
 
 
-        const parameters =
-            await parameterRepository
-                .findAll();
-
+        // =================================================
+        // GET ACTIVE PARAMETERS
+        // =================================================
 
         const activeParams =
-            parameters.filter(
-                p =>
-                    p.status === "active"
+            await this.getActiveParametersForSurvey(
+                survey
             );
 
+
+        // =================================================
+        // CALCULATE USI
+        // =================================================
 
         const usi =
             this.calculateUSI(
@@ -443,6 +602,9 @@ class FeedbackService {
         return {
 
             ...feedback,
+
+            survey_type:
+                survey.survey_type,
 
             ratings:
                 usi.ratings,
@@ -486,13 +648,15 @@ class FeedbackService {
 
 
         // =================================================
-        // CHECK SURVEY
+        // GET SURVEY
         // =================================================
 
         const survey =
             await surveyRepository
                 .findById(
-                    surveyId
+                    Number(
+                        surveyId
+                    )
                 );
 
 
@@ -520,13 +684,15 @@ class FeedbackService {
 
 
         // =================================================
-        // GET SURVEY MAPPINGS
+        // GET MAPPINGS
         // =================================================
 
         const mappings =
             await departmentMappingRepository
                 .findBySurveyId(
-                    surveyId
+                    Number(
+                        surveyId
+                    )
                 );
 
 
@@ -544,6 +710,7 @@ class FeedbackService {
                     Number(
                         fromDeptId
                     )
+
             );
 
 
@@ -640,7 +807,9 @@ class FeedbackService {
         const survey =
             await surveyRepository
                 .findById(
-                    Number(surveyId)
+                    Number(
+                        surveyId
+                    )
                 );
 
 
@@ -659,8 +828,12 @@ class FeedbackService {
         // =================================================
 
         const isCreator =
-            Number(survey.created_by) ===
-            Number(userId);
+            Number(
+                survey.created_by
+            ) ===
+            Number(
+                userId
+            );
 
 
         // =================================================
@@ -670,9 +843,19 @@ class FeedbackService {
         const mapping =
             await departmentMappingRepository
                 .findByFromAndTo(
-                    Number(surveyId),
-                    Number(fromDeptId),
-                    Number(toDeptId)
+
+                    Number(
+                        surveyId
+                    ),
+
+                    Number(
+                        fromDeptId
+                    ),
+
+                    Number(
+                        toDeptId
+                    )
+
                 );
 
 
@@ -744,9 +927,19 @@ class FeedbackService {
         const feedback =
             await feedbackRepository
                 .findBySurveyAndDepts(
-                    Number(surveyId),
-                    Number(fromDeptId),
-                    Number(toDeptId)
+
+                    Number(
+                        surveyId
+                    ),
+
+                    Number(
+                        fromDeptId
+                    ),
+
+                    Number(
+                        toDeptId
+                    )
+
                 );
 
 
@@ -769,18 +962,12 @@ class FeedbackService {
 
 
         // =================================================
-        // GET PARAMETERS
+        // GET ACTIVE PARAMETERS
         // =================================================
 
-        const parameters =
-            await parameterRepository
-                .findAll();
-
-
         const activeParams =
-            parameters.filter(
-                parameter =>
-                    parameter.status === "active"
+            await this.getActiveParametersForSurvey(
+                survey
             );
 
 
@@ -798,6 +985,9 @@ class FeedbackService {
         return {
 
             ...feedback,
+
+            survey_type:
+                survey.survey_type,
 
             ratings:
                 usi.ratings,
@@ -847,7 +1037,9 @@ class FeedbackService {
         const survey =
             await surveyRepository
                 .findById(
-                    surveyId
+                    Number(
+                        surveyId
+                    )
                 );
 
 
@@ -866,8 +1058,12 @@ class FeedbackService {
         // =================================================
 
         if (
-            Number(survey.created_by) !==
-            Number(userId)
+            Number(
+                survey.created_by
+            ) !==
+            Number(
+                userId
+            )
         ) {
 
             throw new ApiError(
@@ -884,8 +1080,15 @@ class FeedbackService {
 
         return await feedbackRepository
             .getFeedbackSubmissionStatusForCreator(
-                surveyId,
-                targetDepartmentId
+
+                Number(
+                    surveyId
+                ),
+
+                Number(
+                    targetDepartmentId
+                )
+
             );
 
     }
@@ -946,6 +1149,24 @@ class FeedbackService {
 
 
         // =================================================
+        // RATINGS ARRAY VALIDATION
+        // =================================================
+
+        if (
+            !Array.isArray(
+                ratings
+            )
+        ) {
+
+            throw new ApiError(
+                400,
+                "ratings must be an array of parameter rating objects."
+            );
+
+        }
+
+
+        // =================================================
         // FROM DEPARTMENT
         // =================================================
 
@@ -955,7 +1176,9 @@ class FeedbackService {
             );
 
 
-        if (!from_department_id) {
+        if (
+            !from_department_id
+        ) {
 
             throw new ApiError(
                 400,
@@ -978,6 +1201,40 @@ class FeedbackService {
 
 
         // =================================================
+        // ID VALIDATION
+        // =================================================
+
+        if (
+            !Number.isInteger(
+                surveyId
+            ) ||
+            surveyId <= 0
+        ) {
+
+            throw new ApiError(
+                400,
+                "Invalid survey_id"
+            );
+
+        }
+
+
+        if (
+            !Number.isInteger(
+                toDepartmentId
+            ) ||
+            toDepartmentId <= 0
+        ) {
+
+            throw new ApiError(
+                400,
+                "Invalid to_department_id"
+            );
+
+        }
+
+
+        // =================================================
         // SAME DEPARTMENT CHECK
         // =================================================
 
@@ -995,6 +1252,27 @@ class FeedbackService {
 
 
         // =================================================
+        // GET SURVEY
+        // =================================================
+
+        const survey =
+            await surveyRepository
+                .findById(
+                    surveyId
+                );
+
+
+        if (!survey) {
+
+            throw new ApiError(
+                404,
+                "Survey not found"
+            );
+
+        }
+
+
+        // =================================================
         // ACTIVE SURVEY VALIDATION
         // =================================================
 
@@ -1005,8 +1283,9 @@ class FeedbackService {
 
         if (
             !activeSurvey ||
-            Number(activeSurvey.survey_id) !==
-            surveyId
+            Number(
+                activeSurvey.survey_id
+            ) !== surveyId
         ) {
 
             throw new ApiError(
@@ -1024,9 +1303,13 @@ class FeedbackService {
         const mapping =
             await departmentMappingRepository
                 .findByFromAndTo(
+
                     surveyId,
+
                     from_department_id,
+
                     toDepartmentId
+
                 );
 
 
@@ -1054,6 +1337,11 @@ class FeedbackService {
         );
 
         console.log(
+            "SURVEY TYPE:",
+            survey.survey_type
+        );
+
+        console.log(
             "FROM DEPARTMENT:",
             from_department_id
         );
@@ -1073,9 +1361,7 @@ class FeedbackService {
         );
 
 
-        if (
-            !mapping
-        ) {
+        if (!mapping) {
 
             throw new ApiError(
                 403,
@@ -1101,12 +1387,16 @@ class FeedbackService {
         // CHECK EXISTING FEEDBACK
         // =================================================
 
-        let feedback =
+        const feedback =
             await feedbackRepository
                 .findBySurveyAndDepts(
+
                     surveyId,
+
                     from_department_id,
+
                     toDepartmentId
+
                 );
 
 
@@ -1131,32 +1421,36 @@ class FeedbackService {
         // GET ACTIVE PARAMETERS
         // =================================================
 
-        const parameters =
-            await parameterRepository
-                .findAll();
-
-
         const activeParams =
-            parameters.filter(
-                p =>
-                    p.status === "active"
+            await this.getActiveParametersForSurvey(
+                survey
             );
 
 
         // =================================================
-        // VALIDATE RATINGS ARRAY
+        // NO ACTIVE PARAMETERS
         // =================================================
 
         if (
-            !Array.isArray(ratings)
+            activeParams.length === 0
         ) {
 
             throw new ApiError(
                 400,
-                "ratings must be an array of parameter rating objects."
+                "No active parameters are configured for this survey."
             );
 
         }
+
+
+        // =================================================
+        // DETERMINE SURVEY TYPE
+        // =================================================
+
+        const isSpecialSurvey =
+            String(
+                survey.survey_type || ""
+            ).toLowerCase() === "special";
 
 
         // =================================================
@@ -1169,53 +1463,42 @@ class FeedbackService {
 
             const {
                 parameter_id,
+                survey_parameter_id,
                 rating
             } = item;
 
 
+            // ---------------------------------------------
+            // RATING REQUIRED
+            // ---------------------------------------------
+
             if (
-                !parameter_id ||
-                rating === undefined
+                rating === undefined ||
+                rating === null
             ) {
 
                 throw new ApiError(
                     400,
-                    "Each rating object must contain parameter_id and rating."
+                    "Each rating object must contain rating."
                 );
 
             }
 
 
-            const paramExists =
-                activeParams.find(
-                    p =>
-                        Number(
-                            p.parameter_id
-                        ) ===
-                        Number(
-                            parameter_id
-                        )
-                );
-
-
-            if (!paramExists) {
-
-                throw new ApiError(
-                    400,
-                    `Parameter ID ${parameter_id} is invalid or inactive.`
-                );
-
-            }
-
+            // ---------------------------------------------
+            // RATING MUST BE INTEGER 1-5
+            // ---------------------------------------------
 
             const rVal =
-                parseInt(
+                Number(
                     rating
                 );
 
 
             if (
-                isNaN(rVal) ||
+                !Number.isInteger(
+                    rVal
+                ) ||
                 rVal < 1 ||
                 rVal > 5
             ) {
@@ -1227,34 +1510,172 @@ class FeedbackService {
 
             }
 
+
+            // ---------------------------------------------
+            // SPECIAL SURVEY
+            // ---------------------------------------------
+
+            if (
+                isSpecialSurvey
+            ) {
+
+                if (
+                    !survey_parameter_id
+                ) {
+
+                    throw new ApiError(
+                        400,
+                        "Each rating must contain survey_parameter_id for special survey."
+                    );
+
+                }
+
+
+                const specialParameterExists =
+                    activeParams.find(
+                        parameter =>
+
+                            Number(
+                                parameter.survey_parameter_id
+                            ) ===
+                            Number(
+                                survey_parameter_id
+                            )
+                    );
+
+
+                if (
+                    !specialParameterExists
+                ) {
+
+                    throw new ApiError(
+                        400,
+                        `Special parameter ID ${survey_parameter_id} is invalid or inactive.`
+                    );
+
+                }
+
+            }
+
+
+            // ---------------------------------------------
+            // GENERAL SURVEY
+            // ---------------------------------------------
+
+            else {
+
+                if (
+                    !parameter_id
+                ) {
+
+                    throw new ApiError(
+                        400,
+                        "Each rating must contain parameter_id for general survey."
+                    );
+
+                }
+
+
+                const parameterExists =
+                    activeParams.find(
+                        parameter =>
+
+                            Number(
+                                parameter.parameter_id
+                            ) ===
+                            Number(
+                                parameter_id
+                            )
+                    );
+
+
+                if (
+                    !parameterExists
+                ) {
+
+                    throw new ApiError(
+                        400,
+                        `Parameter ID ${parameter_id} is invalid or inactive.`
+                    );
+
+                }
+
+            }
+
         }
 
 
         // =================================================
-        // SUBMITTED -> ALL PARAMETERS REQUIRED
+        // PREVENT DUPLICATE PARAMETERS
+        // =================================================
+
+        const ratingIds =
+            isSpecialSurvey
+
+                ? ratings.map(
+                    item =>
+                        Number(
+                            item.survey_parameter_id
+                        )
+                )
+
+                : ratings.map(
+                    item =>
+                        Number(
+                            item.parameter_id
+                        )
+                );
+
+
+        const uniqueRatingIds =
+            new Set(
+                ratingIds
+            );
+
+
+        if (
+            uniqueRatingIds.size !==
+            ratingIds.length
+        ) {
+
+            throw new ApiError(
+                400,
+                "Duplicate parameter ratings are not allowed."
+            );
+
+        }
+
+
+        // =================================================
+        // SUBMITTED -> ALL ACTIVE PARAMETERS REQUIRED
         // =================================================
 
         if (
             status === "submitted"
         ) {
 
-            const ratedParamIds =
-                ratings.map(
-                    r =>
-                        Number(
-                            r.parameter_id
-                        )
-                );
-
-
             const missingParams =
                 activeParams.filter(
-                    ap =>
-                        !ratedParamIds.includes(
-                            Number(
-                                ap.parameter_id
-                            )
-                        )
+                    parameter => {
+
+                        const parameterId =
+                            isSpecialSurvey
+
+                                ? Number(
+                                    parameter.survey_parameter_id
+                                )
+
+                                : Number(
+                                    parameter.parameter_id
+                                );
+
+
+                        return !uniqueRatingIds
+                            .has(
+                                parameterId
+                            );
+
+                    }
                 );
 
 
@@ -1265,8 +1686,8 @@ class FeedbackService {
                 const missingNames =
                     missingParams
                         .map(
-                            mp =>
-                                mp.parameter_name
+                            parameter =>
+                                parameter.parameter_name
                         )
                         .join(", ");
 
@@ -1324,7 +1745,9 @@ class FeedbackService {
 
             await feedbackRepository
                 .update(
+
                     feedbackId,
+
                     {
 
                         overall_comment:
@@ -1334,6 +1757,7 @@ class FeedbackService {
                             status
 
                     }
+
                 );
 
         }
@@ -1341,6 +1765,12 @@ class FeedbackService {
 
         // =================================================
         // UPSERT FEEDBACK DETAILS
+        //
+        // GENERAL:
+        //     upsertGeneral()
+        //
+        // SPECIAL:
+        //     upsertSpecial()
         // =================================================
 
         for (
@@ -1349,18 +1779,55 @@ class FeedbackService {
 
             const {
                 parameter_id,
+                survey_parameter_id,
                 rating,
                 comment
             } = item;
 
 
-            await feedbackDetailRepository
-                .upsert(
-                    feedbackId,
-                    parameter_id,
-                    rating,
-                    comment || null
-                );
+            if (
+                isSpecialSurvey
+            ) {
+
+                await feedbackDetailRepository
+                    .upsertSpecial(
+
+                        feedbackId,
+
+                        Number(
+                            survey_parameter_id
+                        ),
+
+                        Number(
+                            rating
+                        ),
+
+                        comment || null
+
+                    );
+
+            }
+
+            else {
+
+                await feedbackDetailRepository
+                    .upsertGeneral(
+
+                        feedbackId,
+
+                        Number(
+                            parameter_id
+                        ),
+
+                        Number(
+                            rating
+                        ),
+
+                        comment || null
+
+                    );
+
+            }
 
         }
 
@@ -1371,9 +1838,13 @@ class FeedbackService {
 
         return await this
             .getFeedbackById(
+
                 feedbackId,
+
                 user.user_id,
+
                 user.role_name
+
             );
 
     }

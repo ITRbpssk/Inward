@@ -10,7 +10,11 @@ const ApiResponse =
 // =====================================================
 
 const getAllSurveys =
-    async (req, res, next) => {
+    async (
+        req,
+        res,
+        next
+    ) => {
 
         try {
 
@@ -21,15 +25,18 @@ const getAllSurveys =
                         req.user.role_name
                     );
 
-            res.status(200).json(
 
-                new ApiResponse(
-                    200,
-                    surveys,
-                    "Surveys fetched successfully"
-                )
+            res
+                .status(200)
+                .json(
 
-            );
+                    new ApiResponse(
+                        200,
+                        surveys,
+                        "Surveys fetched successfully"
+                    )
+
+                );
 
         } catch (error) {
 
@@ -45,7 +52,11 @@ const getAllSurveys =
 // =====================================================
 
 const getSurveyById =
-    async (req, res, next) => {
+    async (
+        req,
+        res,
+        next
+    ) => {
 
         try {
 
@@ -56,15 +67,17 @@ const getSurveyById =
                     );
 
 
-            res.status(200).json(
+            res
+                .status(200)
+                .json(
 
-                new ApiResponse(
-                    200,
-                    survey,
-                    "Survey fetched successfully"
-                )
+                    new ApiResponse(
+                        200,
+                        survey,
+                        "Survey fetched successfully"
+                    )
 
-            );
+                );
 
         } catch (error) {
 
@@ -76,15 +89,15 @@ const getSurveyById =
 
 
 // =====================================================
-// GET ONE ACTIVE SURVEY
-//
-// BACKWARD COMPATIBILITY
-//
-// Returns latest active survey.
+// GET ACTIVE SURVEY
 // =====================================================
 
 const getActiveSurvey =
-    async (req, res, next) => {
+    async (
+        req,
+        res,
+        next
+    ) => {
 
         try {
 
@@ -93,15 +106,17 @@ const getActiveSurvey =
                     .getActiveSurvey();
 
 
-            res.status(200).json(
+            res
+                .status(200)
+                .json(
 
-                new ApiResponse(
-                    200,
-                    survey,
-                    "Active survey fetched successfully"
-                )
+                    new ApiResponse(
+                        200,
+                        survey,
+                        "Active survey fetched successfully"
+                    )
 
-            );
+                );
 
         } catch (error) {
 
@@ -114,12 +129,14 @@ const getActiveSurvey =
 
 // =====================================================
 // GET ALL ACTIVE SURVEYS
-//
-// Multiple active surveys supported.
 // =====================================================
 
 const getActiveSurveys =
-    async (req, res, next) => {
+    async (
+        req,
+        res,
+        next
+    ) => {
 
         try {
 
@@ -128,15 +145,17 @@ const getActiveSurveys =
                     .getActiveSurveys();
 
 
-            res.status(200).json(
+            res
+                .status(200)
+                .json(
 
-                new ApiResponse(
-                    200,
-                    surveys,
-                    "Active surveys fetched successfully"
-                )
+                    new ApiResponse(
+                        200,
+                        surveys,
+                        "Active surveys fetched successfully"
+                    )
 
-            );
+                );
 
         } catch (error) {
 
@@ -152,33 +171,33 @@ const getActiveSurveys =
 // =====================================================
 
 const getMySurveys =
-    async (req, res, next) => {
+    async (
+        req,
+        res,
+        next
+    ) => {
 
         try {
-
-            const departmentId =
-                req.user.department_id;
-
-            const userId =
-                req.user.user_id;
 
             const surveys =
                 await surveyService
                     .getMySurveys(
-                        departmentId,
-                        userId
+                        req.user.department_id,
+                        req.user.user_id
                     );
 
 
-            res.status(200).json(
+            res
+                .status(200)
+                .json(
 
-                new ApiResponse(
-                    200,
-                    surveys,
-                    "Assigned surveys fetched successfully"
-                )
+                    new ApiResponse(
+                        200,
+                        surveys,
+                        "Assigned surveys fetched successfully"
+                    )
 
-            );
+                );
 
         } catch (error) {
 
@@ -194,18 +213,39 @@ const getMySurveys =
 // =====================================================
 
 const createSurvey =
-    async (req, res, next) => {
+    async (
+        req,
+        res,
+        next
+    ) => {
 
         try {
 
             console.log("");
             console.log(
-                "🔥 CREATE SURVEY REQUEST"
+                "========================================"
+            );
+
+            console.log(
+                "🔥 CREATE SURVEY"
+            );
+
+            console.log(
+                "USER:",
+                req.user
             );
 
             console.log(
                 "REQUEST BODY:",
-                req.body
+                JSON.stringify(
+                    req.body,
+                    null,
+                    2
+                )
+            );
+
+            console.log(
+                "========================================"
             );
 
 
@@ -218,20 +258,29 @@ const createSurvey =
 
 
             console.log(
-                "✅ SURVEY CREATED:",
-                survey
+                "✅ SURVEY CREATED:"
             );
 
-
-            res.status(201).json(
-
-                new ApiResponse(
-                    201,
+            console.log(
+                JSON.stringify(
                     survey,
-                    "Survey created successfully"
+                    null,
+                    2
                 )
-
             );
+
+
+            res
+                .status(201)
+                .json(
+
+                    new ApiResponse(
+                        201,
+                        survey,
+                        "Survey created successfully"
+                    )
+
+                );
 
         } catch (error) {
 
@@ -252,33 +301,13 @@ const createSurvey =
 // =====================================================
 
 const updateSurvey =
-    async (req, res, next) => {
+    async (
+        req,
+        res,
+        next
+    ) => {
 
         try {
-
-            console.log("");
-            console.log(
-                "========================================"
-            );
-
-            console.log(
-                "🔥 UPDATE SURVEY REQUEST"
-            );
-
-            console.log(
-                "SURVEY ID:",
-                req.params.id
-            );
-
-            console.log(
-                "REQUEST BODY:",
-                req.body
-            );
-
-            console.log(
-                "========================================"
-            );
-
 
             const survey =
                 await surveyService
@@ -288,31 +317,19 @@ const updateSurvey =
                     );
 
 
-            console.log(
-                "✅ SURVEY UPDATED:"
-            );
+            res
+                .status(200)
+                .json(
 
-            console.log(
-                survey
-            );
+                    new ApiResponse(
+                        200,
+                        survey,
+                        "Survey updated successfully"
+                    )
 
-
-            res.status(200).json(
-
-                new ApiResponse(
-                    200,
-                    survey,
-                    "Survey updated successfully"
-                )
-
-            );
+                );
 
         } catch (error) {
-
-            console.error(
-                "❌ UPDATE SURVEY ERROR:",
-                error
-            );
 
             next(error);
 
@@ -326,7 +343,11 @@ const updateSurvey =
 // =====================================================
 
 const deleteSurvey =
-    async (req, res, next) => {
+    async (
+        req,
+        res,
+        next
+    ) => {
 
         try {
 
@@ -336,15 +357,17 @@ const deleteSurvey =
                 );
 
 
-            res.status(200).json(
+            res
+                .status(200)
+                .json(
 
-                new ApiResponse(
-                    200,
-                    null,
-                    "Survey deleted successfully"
-                )
+                    new ApiResponse(
+                        200,
+                        null,
+                        "Survey deleted successfully"
+                    )
 
-            );
+                );
 
         } catch (error) {
 
@@ -354,10 +377,6 @@ const deleteSurvey =
 
     };
 
-
-// =====================================================
-// EXPORT
-// =====================================================
 
 module.exports = {
 
