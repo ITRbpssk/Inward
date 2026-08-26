@@ -42,6 +42,26 @@ router.get(
 );
 
 
+
+
+
+
+// =====================================================
+// HOD - RECEIVED EVALUATIONS
+// =====================================================
+
+router.get(
+    "/my-evaluators",
+
+    roleMiddleware([
+        ROLES.HOD
+    ]),
+
+    departmentMappingController
+        .getEvaluatorsForMyDepartment
+);
+
+
 // =====================================================
 // ADMIN - ALL MAPPINGS
 // =====================================================

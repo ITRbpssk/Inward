@@ -1418,6 +1418,47 @@ async getMappedToDepartments(
 
 }
 
+
+async getEvaluatorsForMyDepartment(
+    toDeptId,
+    surveyId
+) {
+
+    const departmentId =
+        Number(toDeptId);
+
+    const surveyIdNumber =
+        Number(surveyId);
+
+    if (
+        !Number.isInteger(departmentId) ||
+        departmentId <= 0
+    ) {
+
+        throw new ApiError(
+            400,
+            "Invalid HOD department ID"
+        );
+    }
+
+    if (
+        !Number.isInteger(surveyIdNumber) ||
+        surveyIdNumber <= 0
+    ) {
+
+        throw new ApiError(
+            400,
+            "Invalid survey ID"
+        );
+    }
+
+    return await departmentMappingRepository
+        .findEvaluatorsForMyDepartment(
+            departmentId,
+            surveyIdNumber
+        );
+}
+
 }
 module.exports =
     new DepartmentMappingService();

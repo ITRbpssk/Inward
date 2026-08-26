@@ -13,6 +13,15 @@ class SurveyService {
 
     // =====================================================
     // GET ALL SURVEYS
+    //
+    // ADMIN:
+    //     ALL surveys
+    //
+    // HOD:
+    //     Surveys created by logged-in HOD
+    //
+    // IMPORTANT:
+    // ADMIN ला created_by वर कोणताही filter नाही.
     // =====================================================
 
     async getAllSurveys(
@@ -20,27 +29,107 @@ class SurveyService {
         roleName
     ) {
 
+        const normalizedRole =
+            String(
+                roleName || ""
+            )
+                .trim()
+                .toUpperCase();
+
+
+        console.log("");
+        console.log(
+            "========================================"
+        );
+        console.log(
+            "📋 GET ALL SURVEYS"
+        );
+        console.log(
+            "USER ID:",
+            userId
+        );
+        console.log(
+            "ROLE:",
+            normalizedRole
+        );
+        console.log(
+            "========================================"
+        );
+
+
+        // =================================================
+        // ADMIN
+        //
+        // IMPORTANT:
+        // Admin ला system मधील EVERY survey पाहिजे.
+        //
+        // Do NOT use:
+        // findByCreatedBy(userId)
+        //
+        // Use:
+        // findAll()
+        // =================================================
+
         if (
-            roleName === "ADMIN"
+            normalizedRole === "ADMIN"
         ) {
 
-            return await surveyRepository
-                .findAll();
+            const surveys =
+                await surveyRepository
+                    .findAll();
+
+
+            console.log(
+                "ADMIN SURVEYS COUNT:",
+                surveys.length
+            );
+
+
+            console.log(
+                "ADMIN SURVEY IDS:",
+                surveys.map(
+                    survey =>
+                        survey.survey_id
+                )
+            );
+
+
+            return surveys;
 
         }
 
 
+        // =================================================
+        // HOD
+        //
+        // Existing behavior unchanged.
+        // =================================================
+
         if (
-            roleName === "HOD"
+            normalizedRole === "HOD"
         ) {
 
-            return await surveyRepository
-                .findByCreatedBy(
-                    userId
-                );
+            const surveys =
+                await surveyRepository
+                    .findByCreatedBy(
+                        userId
+                    );
+
+
+            console.log(
+                "HOD SURVEYS COUNT:",
+                surveys.length
+            );
+
+
+            return surveys;
 
         }
 
+
+        // =================================================
+        // OTHER ROLES
+        // =================================================
 
         return [];
 
@@ -62,7 +151,9 @@ class SurveyService {
                 );
 
 
-        if (!survey) {
+        if (
+            !survey
+        ) {
 
             throw new ApiError(
                 404,
@@ -88,7 +179,9 @@ class SurveyService {
                 .findActiveSurvey();
 
 
-        if (!survey) {
+        if (
+            !survey
+        ) {
 
             throw new ApiError(
                 404,
@@ -469,7 +562,7 @@ class SurveyService {
                                 parameter?.description
                                     ? String(
                                         parameter.description
-                                      ).trim()
+                                    ).trim()
                                     : null;
 
 
@@ -501,7 +594,7 @@ class SurveyService {
                                     ) > 0
                                         ? Number(
                                             parameter.display_order
-                                          )
+                                        )
                                         : index + 1,
 
                                 status:
@@ -748,6 +841,10 @@ class SurveyService {
 
 }
 
+
+// =====================================================
+// EXPORT
+// =====================================================
 
 module.exports =
     new SurveyService();

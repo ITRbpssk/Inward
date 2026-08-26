@@ -1275,17 +1275,35 @@ class FeedbackService {
         // =================================================
         // ACTIVE SURVEY VALIDATION
         // =================================================
+        // =================================================
+        // ACTIVE SURVEY VALIDATION
+        //
+        // IMPORTANT:
+        // Validate the SELECTED survey itself.
+        //
+        // DO NOT call findActiveSurvey() here because
+        // multiple surveys can be active at the same time.
+        //
+        // Example:
+        // Survey 33 = active
+        // Survey 34 = active
+        //
+        // If user submits Survey 33, Survey 34 must NOT
+        // cause Survey 33 to fail.
+        // =================================================
 
-        const activeSurvey =
-            await surveyRepository
-                .findActiveSurvey();
+        const surveyStatus =
+            String(
+                survey.status || ""
+            ).trim().toLowerCase();
 
+
+        // -------------------------------------------------
+        // STATUS MUST BE ACTIVE
+        // -------------------------------------------------
 
         if (
-            !activeSurvey ||
-            Number(
-                activeSurvey.survey_id
-            ) !== surveyId
+            surveyStatus !== "active"
         ) {
 
             throw new ApiError(
@@ -1294,6 +1312,131 @@ class FeedbackService {
             );
 
         }
+
+
+        // -------------------------------------------------
+        // DATE VALIDATION
+        //
+        // DB columns are DATE.
+        //
+        // Expected:
+        // start_date <= today <= end_date
+        // -------------------------------------------------
+
+        const today =
+            new Date();
+
+
+        // YYYY-MM-DD
+        const todayString =
+            today
+                .toISOString()
+                .slice(
+                    0,
+                    10
+                );
+
+
+        const startDate =
+            survey.start_date
+                ? new Date(
+                    survey.start_date
+                )
+                    .toISOString()
+                    .slice(
+                        0,
+                        10
+                    )
+                : null;
+
+
+        const endDate =
+            survey.end_date
+                ? new Date(
+                    survey.end_date
+                )
+                    .toISOString()
+                    .slice(
+                        0,
+                        10
+                    )
+                : null;
+
+
+        // -------------------------------------------------
+        // START DATE CHECK
+        // -------------------------------------------------
+
+        if (
+            startDate &&
+            todayString < startDate
+        ) {
+
+            throw new ApiError(
+                400,
+                "This survey has not started yet."
+            );
+
+        }
+
+
+        // -------------------------------------------------
+        // END DATE CHECK
+        // -------------------------------------------------
+
+        if (
+            endDate &&
+            todayString > endDate
+        ) {
+
+            throw new ApiError(
+                400,
+                "This survey has expired."
+            );
+
+        }
+
+
+        console.log(
+            "========================================"
+        );
+
+        console.log(
+            "✅ SELECTED SURVEY ACTIVE VALIDATION"
+        );
+
+        console.log(
+            "SURVEY ID:",
+            surveyId
+        );
+
+        console.log(
+            "SURVEY STATUS:",
+            survey.status
+        );
+
+        console.log(
+            "SURVEY START DATE:",
+            startDate
+        );
+
+        console.log(
+            "SURVEY END DATE:",
+            endDate
+        );
+
+        console.log(
+            "TODAY:",
+            todayString
+        );
+
+        console.log(
+            "ACTIVE CHECK: PASSED"
+        );
+
+        console.log(
+            "========================================"
+        );
 
 
         // =================================================

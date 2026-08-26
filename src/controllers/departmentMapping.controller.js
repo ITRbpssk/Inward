@@ -401,6 +401,44 @@ const getMyEvaluationTargets =
     };
 
 
+    // =====================================================
+// HOD RECEIVED EVALUATIONS
+// =====================================================
+
+const getEvaluatorsForMyDepartment =
+    async (req, res, next) => {
+
+        try {
+
+            const departmentId =
+                req.user.department_id;
+
+            const surveyId =
+                req.query.survey_id;
+
+            const evaluators =
+                await departmentMappingService
+                    .getEvaluatorsForMyDepartment(
+                        departmentId,
+                        surveyId
+                    );
+
+            res.status(200).json(
+                new ApiResponse(
+                    200,
+                    evaluators,
+                    "Departments that evaluated you fetched successfully"
+                )
+            );
+
+        } catch (error) {
+
+            next(error);
+
+        }
+    };
+
+
 module.exports = {
 
     getAllMappings,
@@ -423,6 +461,8 @@ module.exports = {
 
     deleteMapping,
 
-    getMyEvaluationTargets
+    getMyEvaluationTargets,
+
+    getEvaluatorsForMyDepartment
 
 };

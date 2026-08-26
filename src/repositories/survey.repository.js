@@ -895,83 +895,108 @@ class SurveyRepository {
     // =====================================================
     // GET MY SURVEYS
     // =====================================================
+// =====================================================
+// GET MY SURVEYS
+//
+// Current department can see surveys when:
+//
+// 1. Current department is EVALUATOR
+//    dm.from_department_id = departmentId
+//
+// OR
+//
+// 2. Current department is TARGET department
+//    dm.to_department_id = departmentId
+//
+// OR
+//
+// 3. Current user created the survey
+//    s.created_by = userId
+//
+// IMPORTANT:
+// Multiple surveys must be returned.
+// Do NOT use LIMIT 1.
+// =====================================================
+// =====================================================
+// GET MY SURVEYS
+//
+// A HOD can see a survey when:
+//
+// 1. The logged-in user CREATED the survey
+//    OR
+//
+// 2. The logged-in HOD's department is an EVALUATOR
+//    in that survey.
+//
+// IMPORTANT:
+//
+// DO NOT use:
+//     dm.to_department_id = departmentId
+//
+// Because target/creator department should NOT
+// automatically get every survey.
+//
+// Example:
+//
+// IT creates Survey A
+//
+// IT       -> creator
+// Finance  -> evaluator
+// Civil    -> evaluator
+// Vehicle  -> evaluator
+//
+// IT      sees Survey A
+// Finance sees Survey A
+// Civil   sees Survey A
+// Vehicle sees Survey A
+//
+// Account does NOT see Survey A unless Account
+// is also an evaluator.
+//
+// =====================================================
 
-    async findMySurveys(
-        departmentId,
-        userId
-    ) {
+async findMySurveys(
+    departmentId,
+    userId
+) {
 
-        const query = `
-            SELECT DISTINCT
+    const query = `
+        SELECT DISTINCT
 
-                s.survey_id,
-                s.survey_name,
-                s.survey_type,
-                s.start_date,
-                s.end_date,
-                s.status,
-                s.created_by,
+            s.survey_id,
+            s.survey_name,
+            s.survey_type,
+            s.start_date,
+            s.end_date,
+            s.status,
+            s.created_by
 
-                dm.mapping_id,
-                dm.from_department_id,
-                dm.to_department_id,
+        FROM surveys s
 
-                target.department_code
-                    AS target_department_code,
+        LEFT JOIN department_mappings dm
+            ON dm.survey_id = s.survey_id
+            AND dm.status = 'active'
 
-                target.department_name
-                    AS target_department_name,
+        WHERE
+            s.created_by = ?
+            OR
+            dm.from_department_id = ?
 
-                evaluator.department_code
-                    AS evaluator_department_code,
+        ORDER BY
+            s.survey_id DESC
+    `;
 
-                evaluator.department_name
-                    AS evaluator_department_name
+    const [rows] =
+        await pool.query(
+            query,
+            [
+                userId,
+                departmentId
+            ]
+        );
 
-            FROM surveys s
-
-            LEFT JOIN department_mappings dm
-                ON dm.survey_id =
-                   s.survey_id
-
-               AND dm.status =
-                   'active'
-
-            LEFT JOIN departments evaluator
-                ON dm.from_department_id =
-                   evaluator.department_id
-
-            LEFT JOIN departments target
-                ON dm.to_department_id =
-                   target.department_id
-
-            WHERE
-                (
-                    dm.from_department_id = ?
-
-                    OR
-
-                    s.created_by = ?
-                )
-
-            ORDER BY
-                s.survey_id DESC
-        `;
-
-
-        const [rows] =
-            await pool.query(
-                query,
-                [
-                    departmentId,
-                    userId
-                ]
-            );
-
-
-        return rows;
-    }
-
+    return rows;
+}
 }
 
 

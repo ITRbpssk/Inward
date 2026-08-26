@@ -750,6 +750,131 @@ async findMappedToDepartments(
         return result.affectedRows > 0;
     }
 
+
+
+
+
+    // =====================================================
+// GET SOURCE DEPARTMENTS WHO EVALUATED MY DEPARTMENT
+//
+// Example:
+//
+// Account -> IT
+//
+// Logged-in HOD = IT
+//
+// Returns:
+// Account
+// =====================================================
+
+async findEvaluatorsForMyDepartment(
+    toDeptId,
+    surveyId
+) {
+
+    const departmentId =
+        Number(toDeptId);
+
+    const surveyIdNumber =
+        Number(surveyId);
+
+    const query = `
+        SELECT
+
+            dm.mapping_id,
+
+            dm.survey_id,
+
+            dm.from_department_id,
+
+            dm.to_department_id,
+
+            dm.status,
+
+            f.department_name
+                AS from_department_name,
+
+            f.department_code
+                AS from_department_code,
+
+            t.department_name
+                AS to_department_name,
+
+            t.department_code
+                AS to_department_code
+
+        FROM department_mappings dm
+
+        INNER JOIN departments f
+            ON dm.from_department_id =
+               f.department_id
+
+        INNER JOIN departments t
+            ON dm.to_department_id =
+               t.department_id
+
+        WHERE
+            dm.to_department_id = ?
+
+            AND dm.survey_id = ?
+
+            AND dm.status = 'active'
+
+            AND f.status = 'active'
+
+            AND t.status = 'active'
+
+        ORDER BY
+            dm.mapping_id ASC
+    `;
+
+    console.log(
+        '========================================'
+    );
+
+    console.log(
+        '📥 HOD RECEIVED EVALUATION QUERY'
+    );
+
+    console.log(
+        'HOD DEPARTMENT:',
+        departmentId
+    );
+
+    console.log(
+        'SURVEY:',
+        surveyIdNumber
+    );
+
+    console.log(
+        '========================================'
+    );
+
+    const [rows] =
+        await pool.query(
+            query,
+            [
+                departmentId,
+                surveyIdNumber
+            ]
+        );
+
+    console.log(
+        '📥 RECEIVED EVALUATIONS:',
+        JSON.stringify(
+            rows,
+            null,
+            2
+        )
+    );
+
+    console.log(
+        '📥 RECEIVED COUNT:',
+        rows.length
+    );
+
+    return rows;
+}
 }
 
 
