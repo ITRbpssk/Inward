@@ -4,8 +4,8 @@ const express =
 const router =
     express.Router();
 
-const reportController =
-    require("../controllers/report.controller");
+const reportExportController =
+    require("../controllers/reportExport.controller");
 
 const authMiddleware =
     require("../middlewares/auth.middleware");
@@ -18,7 +18,7 @@ const ROLES =
 
 
 console.log(
-    "✅ REPORT ROUTES LOADED"
+    "✅ REPORT EXPORT ROUTES LOADED"
 );
 
 
@@ -32,66 +32,66 @@ router.use(
 
 
 // =====================================================
-// HOD - GENERAL REPORT
+// HOD - GENERAL EXPORT
 // =====================================================
 
 router.get(
-    "/hod/general",
+    "/hod/general/export",
 
     roleMiddleware([
         ROLES.HOD
     ]),
 
-    reportController
-        .getHodGeneralReport
+    reportExportController
+        .exportHodGeneral
 );
 
 
 // =====================================================
-// HOD - SPECIAL REPORT
+// HOD - SPECIAL EXPORT
 // =====================================================
 
 router.get(
-    "/hod/special",
+    "/hod/special/export",
 
     roleMiddleware([
         ROLES.HOD
     ]),
 
-    reportController
-        .getHodSpecialReport
+    reportExportController
+        .exportHodSpecial
 );
 
 
 // =====================================================
-// ADMIN - GENERAL REPORT
+// ADMIN - GENERAL EXPORT
 // =====================================================
 
 router.get(
-    "/admin/general",
+    "/admin/general/export",
 
     roleMiddleware([
         ROLES.ADMIN
     ]),
 
-    reportController
-        .getAdminGeneralReport
+    reportExportController
+        .exportAdminGeneral
 );
 
 
 // =====================================================
-// ADMIN - SPECIAL REPORT
+// ADMIN - SPECIAL EXPORT
 // =====================================================
 
 router.get(
-    "/admin/special",
+    "/admin/special/export",
 
     roleMiddleware([
         ROLES.ADMIN
     ]),
 
-    reportController
-        .getAdminSpecialReport
+    reportExportController
+        .exportAdminSpecial
 );
 
 

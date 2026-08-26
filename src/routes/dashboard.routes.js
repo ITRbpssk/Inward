@@ -1,94 +1,52 @@
-const express = require("express");
+const express =
+    require("express");
 
-const router = express.Router();
+const router =
+    express.Router();
 
 const dashboardController =
     require("../controllers/dashboard.controller");
 
-const authMiddleware =
-    require("../middlewares/auth.middleware");
-
-const roleMiddleware =
-    require("../middlewares/role.middleware");
-
-const ROLES =
-    require("../constants/roles");
-
-
-router.use(authMiddleware);
-
 
 // =====================================================
-// DASHBOARD SUMMARY
-// ADMIN + HOD
+// TARGET DEPARTMENTS
 // =====================================================
 
 router.get(
-    "/summary",
-    roleMiddleware([
-        ROLES.ADMIN,
-        ROLES.HOD
-    ]),
-    dashboardController.getSummary
+    "/target-departments",
+    dashboardController.getTargetDepartments
 );
 
 
 // =====================================================
-// DEPARTMENT ANALYTICS
-// ADMIN + HOD
+// EVALUATION OVERVIEW
+//
+// Example:
+//
+// GET /dashboard/evaluations
+// ?targetDepartmentId=1
+// &quarter=Q1
 // =====================================================
 
 router.get(
-    "/department-analytics",
-    roleMiddleware([
-        ROLES.ADMIN,
-        ROLES.HOD
-    ]),
-    dashboardController.getDepartmentAnalytics
+    "/evaluations",
+    dashboardController.getEvaluationOverview
 );
 
 
 // =====================================================
-// DEPARTMENT EVALUATION OVERVIEW
-// ADMIN ONLY
+// VIEW RATING
+//
+// Example:
+//
+// GET /dashboard/rating/12
 // =====================================================
 
 router.get(
-    "/department-evaluation-overview",
-    roleMiddleware([
-        ROLES.ADMIN
-    ]),
-    dashboardController.getDepartmentEvaluationOverview
+    "/rating/:feedbackId",
+    dashboardController.getRatingDetails
 );
 
 
-// =====================================================
-// DEPARTMENT DETAILED ANALYTICS
-// ADMIN + HOD
-// =====================================================
-
-router.get(
-    "/department-detailed",
-    roleMiddleware([
-        ROLES.ADMIN,
-        ROLES.HOD
-    ]),
-    dashboardController.getDepartmentDetailedAnalytics
-);
-
-
-// =====================================================
-// FEEDBACK MATRIX
-// ADMIN ONLY
-// =====================================================
-
-router.get(
-    "/matrix",
-    roleMiddleware([
-        ROLES.ADMIN
-    ]),
-    dashboardController.getMatrix
-);
-
-
-module.exports = router;
+module.exports =
+    router;

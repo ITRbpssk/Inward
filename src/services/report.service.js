@@ -1,30 +1,8 @@
 const reportRepository =
     require("../repositories/report.repository");
 
-
-const dashboardService =
-    require("./dashboard.service");
-
-
-const surveyRepository =
-    require("../repositories/survey.repository");
-
-
-const departmentRepository =
-    require("../repositories/department.repository");
-
-
-const {
-    generateExcelReport
-} =
-    require("../utils/excel");
-
-
-const {
-    generatePDFReport
-} =
-    require("../utils/pdf");
-
+const feedbackService =
+    require("./feedback.service");
 
 const ApiError =
     require("../utils/ApiError");
@@ -32,152 +10,65 @@ const ApiError =
 
 class ReportService {
 
-    // =====================================================
-    // ROLE
-    // =====================================================
-
-    normalizeRole(role) {
-
-        return String(
-            role || ""
-        )
-            .trim()
-            .toUpperCase();
-
-    }
-
 
     // =====================================================
-    // SURVEY TYPE
+    // CONSTANTS
     // =====================================================
 
-    normalizeSurveyType(type) {
+    GENERAL_QUARTERS = [
+        "Q1",
+        "Q2",
+        "Q3",
+        "Q4"
+    ];
 
-        return String(
-            type || "general"
-        )
-            .trim()
-            .toLowerCase() === "special"
-            ? "special"
-            : "general";
 
-    }
+    SPECIAL_PREFIX = "Special";
 
 
     // =====================================================
-    // FINANCIAL YEAR
-    //
-    // Example:
-    // 2026 => 2026-27
-    // 01-Apr-2026 to 31-Mar-2027
+    // VALIDATE FINANCIAL YEAR
     // =====================================================
 
-    resolveFinancialYear(year) {
+    validateFinancialYear(
+        financialYear
+    ) {
 
-        const now =
-            new Date();
-
-
-        let currentYear =
-            now.getFullYear();
-
-
-        const month =
-            now.getMonth() + 1;
+        const value =
+            String(
+                financialYear || ""
+            )
+                .trim();
 
 
-        if (
-            month < 4
-        ) {
-
-            currentYear--;
-
-        }
-
-
-        if (
-            year === undefined ||
-            year === null ||
-            year === ""
-        ) {
-
-            return currentYear;
-
-        }
-
-
-        const parsed =
-            Number(year);
-
-
-        if (
-            !Number.isInteger(parsed) ||
-            parsed < 2000 ||
-            parsed > 2100
-        ) {
+        if (!value) {
 
             throw new ApiError(
                 400,
-                "Invalid financial year"
+                "financial_year is required."
             );
 
         }
 
 
-        return parsed;
+        return value;
 
     }
 
 
     // =====================================================
-    // FINANCIAL YEAR LABEL
+    // ROUND SCORE
     // =====================================================
 
-    getFinancialYearLabel(
-        year
-    ) {
-
-        return (
-            `${year}-${String(
-                year + 1
-            ).slice(-2)}`
-        );
-
-    }
-
-
-    // =====================================================
-    // GET QUARTER
-    //
-    // Q1 = Apr - Jun
-    // Q2 = Jul - Sep
-    // Q3 = Oct - Dec
-    // Q4 = Jan - Mar
-    // =====================================================
-
-    getQuarter(
-        dateValue,
-        financialYearStart
+    roundScore(
+        value
     ) {
 
         if (
-            !dateValue
-        ) {
-
-            return null;
-
-        }
-
-
-        const date =
-            new Date(
-                dateValue
-            );
-
-
-        if (
+            value === null ||
+            value === undefined ||
             Number.isNaN(
-                date.getTime()
+                Number(value)
             )
         ) {
 
@@ -186,114 +77,20 @@ class ReportService {
         }
 
 
-        const year =
-            date.getFullYear();
-
-
-        const month =
-            date.getMonth() + 1;
-
-
-        // -------------------------------------------------
-        // Q1
-        // Apr - Jun
-        // -------------------------------------------------
-
-        if (
-            year === financialYearStart &&
-            month >= 4 &&
-            month <= 6
-        ) {
-
-            return "Q1";
-
-        }
-
-
-        // -------------------------------------------------
-        // Q2
-        // Jul - Sep
-        // -------------------------------------------------
-
-        if (
-            year === financialYearStart &&
-            month >= 7 &&
-            month <= 9
-        ) {
-
-            return "Q2";
-
-        }
-
-
-        // -------------------------------------------------
-        // Q3
-        // Oct - Dec
-        // -------------------------------------------------
-
-        if (
-            year === financialYearStart &&
-            month >= 10 &&
-            month <= 12
-        ) {
-
-            return "Q3";
-
-        }
-
-
-        // -------------------------------------------------
-        // Q4
-        // Jan - Mar
-        // -------------------------------------------------
-
-        if (
-            year === financialYearStart + 1 &&
-            month >= 1 &&
-            month <= 3
-        ) {
-
-            return "Q4";
-
-        }
-
-
-        return null;
-
-    }
-
-
-    // =====================================================
-    // ROUND
-    // =====================================================
-
-    round(value) {
-
-        const number =
-            Number(value);
-
-
-        if (
-            !Number.isFinite(number)
-        ) {
-
-            return null;
-
-        }
-
-
         return Number(
-            number.toFixed(2)
+            Number(value).toFixed(2)
         );
 
     }
 
 
     // =====================================================
-    // AVERAGE
+    // CALCULATE AVERAGE
     // =====================================================
 
-    average(values) {
+    calculateAverage(
+        values
+    ) {
 
         if (
             !Array.isArray(values)
@@ -304,20 +101,24 @@ class ReportService {
         }
 
 
-        const valid =
+        const validValues =
             values
+                .filter(
+                    value =>
+                        value !== null &&
+                        value !== undefined &&
+                        Number.isFinite(
+                            Number(value)
+                        )
+                )
                 .map(
                     value =>
                         Number(value)
-                )
-                .filter(
-                    value =>
-                        Number.isFinite(value)
                 );
 
 
         if (
-            valid.length === 0
+            validValues.length === 0
         ) {
 
             return null;
@@ -326,8 +127,7 @@ class ReportService {
 
 
         const total =
-            valid.reduce(
-
+            validValues.reduce(
                 (
                     sum,
                     value
@@ -335,43 +135,27 @@ class ReportService {
                     sum + value,
 
                 0
-
             );
 
 
-        return this.round(
-            total / valid.length
+        return this.roundScore(
+            total /
+            validValues.length
         );
 
     }
 
 
     // =====================================================
-    // FEEDBACK USI
-    //
-    // General:
-    //     general_weightage
-    //
-    // Special:
-    //     special_importance
-    //
-    // Formula:
-    //
-    // USI =
-    //     SUM(weight × rating)
-    //     ---------------------
-    //     SUM(weight × 5)
-    //     × 100
+    // GET FEEDBACK SCORE
     // =====================================================
 
-    calculateFeedbackUSI(
-        ratings,
-        surveyType
+    async getFeedbackScore(
+        feedbackId
     ) {
 
         if (
-            !Array.isArray(ratings) ||
-            ratings.length === 0
+            !feedbackId
         ) {
 
             return null;
@@ -379,93 +163,17 @@ class ReportService {
         }
 
 
-        const type =
-            this.normalizeSurveyType(
-                surveyType
-            );
-
-
-        let total = 0;
-
-        let maximum = 0;
-
-        let count = 0;
-
-
-        for (
-            const row
-            of ratings
-        ) {
-
-            const rating =
-                Number(
-                    row.rating
+        const feedback =
+            await feedbackService
+                .getFeedbackById(
+                    Number(feedbackId),
+                    null,
+                    "ADMIN"
                 );
 
 
-            if (
-                !Number.isFinite(rating) ||
-                rating < 1 ||
-                rating > 5
-            ) {
-
-                continue;
-
-            }
-
-
-            let importance;
-
-
-            if (
-                type === "special"
-            ) {
-
-                importance =
-                    Number(
-                        row.special_importance
-                    );
-
-            }
-
-            else {
-
-                importance =
-                    Number(
-                        row.general_weightage
-                    );
-
-            }
-
-
-            if (
-                !Number.isFinite(
-                    importance
-                ) ||
-                importance <= 0
-            ) {
-
-                importance = 5;
-
-            }
-
-
-            total +=
-                importance * rating;
-
-
-            maximum +=
-                importance * 5;
-
-
-            count++;
-
-        }
-
-
         if (
-            count === 0 ||
-            maximum <= 0
+            !feedback
         ) {
 
             return null;
@@ -473,411 +181,105 @@ class ReportService {
         }
 
 
-        return this.round(
+        if (
+            String(
+                feedback.status || ""
+            )
+                .toLowerCase() !==
+            "submitted"
+        ) {
 
-            (
-                total /
-                maximum
-            ) * 100
+            return null;
 
+        }
+
+
+        return this.roundScore(
+            feedback.usi_percentage
         );
 
     }
 
 
     // =====================================================
-    // BUILD FEEDBACK EVALUATIONS
-    //
-    // One feedback = one evaluation
+    // CACHE FEEDBACK SCORES
     // =====================================================
 
-    buildEvaluations(
-        feedbackRows
+    async buildScoreMap(
+        rows
     ) {
 
-        const groups =
+        const scoreMap =
             new Map();
 
 
-        for (
-            const row
-            of feedbackRows
-        ) {
-
-            const feedbackId =
-                Number(
-                    row.feedback_id
-                );
-
-
-            if (
-                !Number.isFinite(
-                    feedbackId
-                )
-            ) {
-
-                continue;
-
-            }
-
-
-            if (
-                !groups.has(
-                    feedbackId
-                )
-            ) {
-
-                groups.set(
-
-                    feedbackId,
-
-                    {
-
-                        feedback_id:
-                            feedbackId,
-
-                        survey_id:
-                            Number(
-                                row.survey_id
-                            ),
-
-                        survey_type:
-                            this.normalizeSurveyType(
-                                row.survey_type
-                            ),
-
-                        from_department_id:
-                            Number(
-                                row.from_department_id
-                            ),
-
-                        to_department_id:
-                            Number(
-                                row.to_department_id
-                            ),
-
-                        ratings: []
-
-                    }
-
-                );
-
-            }
-
-
-            groups
-                .get(feedbackId)
-                .ratings
-                .push(row);
-
-        }
-
-
-        const result = [];
-
-
-        for (
-            const group
-            of groups.values()
-        ) {
-
-            const usi =
-                this.calculateFeedbackUSI(
-
-                    group.ratings,
-
-                    group.survey_type
-
-                );
-
-
-            if (
-                usi === null
-            ) {
-
-                continue;
-
-            }
-
-
-            result.push({
-
-                feedback_id:
-                    group.feedback_id,
-
-                survey_id:
-                    group.survey_id,
-
-                survey_type:
-                    group.survey_type,
-
-                from_department_id:
-                    group.from_department_id,
-
-                to_department_id:
-                    group.to_department_id,
-
-                usi
-
-            });
-
-        }
-
-
-        return result;
-
-    }
-
-
-    // =====================================================
-    // GET REPORT DEPARTMENTS
-    //
-    // ADMIN:
-    //     ALL ACTIVE DEPARTMENTS
-    //
-    // HOD:
-    //     ONLY TARGET DEPARTMENTS
-    //
-    // IMPORTANT:
-    //     HOD's own department is excluded.
-    // =====================================================
-
-    async getReportDepartments(
-        role,
-        departmentId,
-        financialYear
-    ) {
-
-        // -------------------------------------------------
-        // ADMIN
-        // -------------------------------------------------
-
         if (
-            role === "ADMIN"
+            !Array.isArray(rows)
         ) {
 
-            return (
-                await reportRepository
-                    .findAllDepartments()
-            );
+            return scoreMap;
 
         }
 
 
-        // -------------------------------------------------
-        // HOD
-        // -------------------------------------------------
+        const feedbackIds =
+            [
+                ...new Set(
 
-        if (
-            role === "HOD"
-        ) {
+                    rows
 
-            if (
-                !departmentId
-            ) {
-
-                throw new ApiError(
-                    400,
-                    "HOD department is required"
-                );
-
-            }
-
-
-            const targetDepartments =
-                await reportRepository
-                    .findHODTargetDepartments(
-
-                        departmentId,
-
-                        financialYear
-
-                    );
-
-
-            // ---------------------------------------------
-            // IMPORTANT
-            //
-            // Remove self department.
-            //
-            // Example:
-            // COMPUTER (4) → COMPUTER (4)
-            //
-            // This is not a valid evaluation target.
-            // ---------------------------------------------
-
-            return targetDepartments
-                .filter(
-
-                    department =>
-
-                        Number(
-                            department.department_id
-                        ) !==
-                        Number(
-                            departmentId
+                        .map(
+                            row =>
+                                Number(
+                                    row.feedback_id
+                                )
                         )
 
-                );
+                        .filter(
+                            id =>
+                                Number.isInteger(id) &&
+                                id > 0
+                        )
 
-        }
+                )
+            ];
 
 
-        throw new ApiError(
-            403,
-            "Only Admin and HOD can access reports"
+        await Promise.all(
+
+            feedbackIds.map(
+                async feedbackId => {
+
+                    const score =
+                        await this
+                            .getFeedbackScore(
+                                feedbackId
+                            );
+
+
+                    scoreMap.set(
+                        feedbackId,
+                        score
+                    );
+
+                }
+            )
+
         );
+
+
+        return scoreMap;
 
     }
 
 
     // =====================================================
-    // HOD DEPARTMENT NAME
+    // CREATE EMPTY GENERAL QUARTER OBJECT
     // =====================================================
 
-    async getHODDepartmentName(
-        departmentId
-    ) {
+    createGeneralQuarterObject() {
 
-        if (
-            !departmentId
-        ) {
-
-            return null;
-
-        }
-
-
-        const department =
-            await reportRepository
-                .findDepartmentById(
-                    departmentId
-                );
-
-
-        return (
-            department?.department_name ||
-            null
-        );
-
-    }
-
-
-    // =====================================================
-    // QUARTERLY REPORT
-    //
-    // ADMIN:
-    //
-    // Department | Q1 | Q2 | Q3 | Q4 | Year Average
-    //
-    //
-    // HOD:
-    //
-    // Department | Q1 | Q2 | Q3 | Q4 | Year Average
-    //
-    // Only departments evaluated BY logged-in HOD.
-    //
-    //
-    // SPECIAL SURVEYS:
-    // NOT INCLUDED.
-    // =====================================================
-
-    async getQuarterlyReport(
-        year,
-        role,
-        departmentId
-    ) {
-
-        const normalizedRole =
-            this.normalizeRole(
-                role
-            );
-
-
-        // -------------------------------------------------
-        // ROLE VALIDATION
-        // -------------------------------------------------
-
-        if (
-            normalizedRole !== "ADMIN" &&
-            normalizedRole !== "HOD"
-        ) {
-
-            throw new ApiError(
-                403,
-                "Only Admin and HOD can access reports"
-            );
-
-        }
-
-
-        // -------------------------------------------------
-        // FINANCIAL YEAR
-        // -------------------------------------------------
-
-        const financialYear =
-            this.resolveFinancialYear(
-                year
-            );
-
-
-        const yearLabel =
-            this.getFinancialYearLabel(
-                financialYear
-            );
-
-
-        console.log("");
-
-        console.log(
-            "========================================"
-        );
-
-        console.log(
-            "📊 BUILDING QUARTERLY REPORT"
-        );
-
-        console.log(
-            "FINANCIAL YEAR:",
-            yearLabel
-        );
-
-        console.log(
-            "ROLE:",
-            normalizedRole
-        );
-
-        console.log(
-            "HOD DEPARTMENT:",
-            departmentId
-        );
-
-        console.log(
-            "========================================"
-        );
-
-
-        // =================================================
-        // 1. GET ALL SURVEYS FOR FINANCIAL YEAR
-        // =================================================
-
-        const surveys =
-            await reportRepository
-                .findSurveysForFinancialYear(
-                    financialYear
-                );
-
-
-        // =================================================
-        // 2. SELECT GENERAL SURVEY FOR EACH QUARTER
-        //
-        // Special surveys are ignored here.
-        //
-        // If multiple general surveys exist in the same
-        // quarter, latest survey_id is selected.
-        // =================================================
-
-        const quarterlySurveys = {
+        return {
 
             Q1: null,
 
@@ -889,503 +291,451 @@ class ReportService {
 
         };
 
-
-        for (
-            const survey
-            of surveys
-        ) {
-
-            const surveyType =
-                this.normalizeSurveyType(
-                    survey.survey_type
-                );
+    }
 
 
-            // ---------------------------------------------
-            // SPECIAL SURVEY NEVER ENTERS QUARTERLY REPORT
-            // ---------------------------------------------
+    // =====================================================
+    // HOD - GENERAL REPORT
+    //
+    // IMPORTANT:
+    //
+    // HOD created survey for TARGET department.
+    //
+    // Example:
+    //
+    // IT HOD
+    // Target = IT
+    //
+    // Evaluators:
+    //
+    // Agri     -> IT
+    // Accounts -> IT
+    // QA       -> IT
+    // HR       -> IT
+    //
+    // HOD report must show:
+    //
+    // Evaluator Department | Q1 | Q2 | Q3 | Q4 | Yearly Average
+    //
+    // NOT:
+    //
+    // IT | Q1 | Q2 ...
+    //
+    // Each evaluator department gets its own row.
+    //
+    // Multiple submitted feedbacks for the same
+    // evaluator + quarter are averaged.
+    //
+    // Yearly average is calculated from available
+    // Q1-Q4 scores for that evaluator department.
+    // =====================================================
 
-            if (
-                surveyType !== "general"
-            ) {
+    async getHodGeneralReport(
+        userId,
+        financialYear
+    ) {
 
-                continue;
-
-            }
-
-
-            const quarter =
-                this.getQuarter(
-
-                    survey.start_date,
-
-                    financialYear
-
-                );
-
-
-            if (
-                !quarter
-            ) {
-
-                continue;
-
-            }
-
-
-            if (
-                !quarterlySurveys[
-                    quarter
-                ]
-
-                ||
-
-                Number(
-                    survey.survey_id
-                )
-
-                >
-
-                Number(
-                    quarterlySurveys[
-                        quarter
-                    ].survey_id
-                )
-            ) {
-
-                quarterlySurveys[
-                    quarter
-                ] =
-                    survey;
-
-            }
-
-        }
-
-
-        // =================================================
-        // 3. SURVEY IDS
-        // =================================================
-
-        const surveyIds =
-            Object.values(
-                quarterlySurveys
-            )
-                .filter(
-                    survey =>
-                        survey !== null
-                )
-                .map(
-                    survey =>
-                        Number(
-                            survey.survey_id
-                        )
-                );
-
-
-        console.log(
-            "QUARTERLY SURVEYS:",
-            quarterlySurveys
-        );
-
-        console.log(
-            "QUARTERLY SURVEY IDS:",
-            surveyIds
-        );
-
-
-        // =================================================
-        // 4. GET REPORT DEPARTMENTS
-        // =================================================
-
-        const departments =
-            await this.getReportDepartments(
-
-                normalizedRole,
-
-                departmentId,
-
+        const year =
+            this.validateFinancialYear(
                 financialYear
-
             );
 
 
-        console.log(
-            "REPORT DEPARTMENTS:",
-            departments
-        );
-
-
-        // =================================================
-        // 5. GET SUBMITTED FEEDBACK
-        // =================================================
-
-        let evaluations = [];
-
-
-        if (
-            surveyIds.length > 0
-        ) {
-
-            const feedbackRows =
-                await reportRepository
-                    .findSubmittedFeedbackRatings(
-                        surveyIds
-                    );
-
-
-            evaluations =
-                this.buildEvaluations(
-                    feedbackRows
+        const rows =
+            await reportRepository
+                .getHodGeneralReportSource(
+                    Number(userId),
+                    year
                 );
 
-        }
 
-
-        console.log(
-            "TOTAL EVALUATIONS:",
-            evaluations.length
-        );
+        const scoreMap =
+            await this.buildScoreMap(
+                rows
+            );
 
 
         // =================================================
-        // 6. BUILD ROWS
+        // EVALUATOR DEPARTMENT MAP
+        //
+        // IMPORTANT:
+        //
+        // We use evaluator_department_id
+        // instead of target_department_id.
+        //
+        // This makes the report show:
+        //
+        // Agri
+        // Accounts
+        // QA
+        // HR
+        //
+        // which are evaluating the HOD's department.
         // =================================================
 
-        const rows =
-            departments.map(
+        const departmentMap =
+            new Map();
 
-                (
-                    department,
-                    index
-                ) => {
 
-                    const targetDepartmentId =
-                        Number(
-                            department.department_id
-                        );
+        for (
+            const row
+            of rows
+        ) {
 
+            const evaluatorId =
+                Number(
+                    row.evaluator_department_id
+                );
 
-                    // -------------------------------------
-                    // SCORE FOR ONE QUARTER
-                    // -------------------------------------
 
-                    const getQuarterScore =
-                        (
-                            quarter
-                        ) => {
+            if (
+                !evaluatorId
+            ) {
 
-                            const survey =
-                                quarterlySurveys[
-                                    quarter
-                                ];
+                continue;
 
+            }
 
-                            if (
-                                !survey
-                            ) {
 
-                                return null;
+            if (
+                departmentMap.has(
+                    evaluatorId
+                )
+            ) {
 
-                            }
+                continue;
 
+            }
 
-                            // ---------------------------------
-                            // ADMIN
-                            //
-                            // Any submitted evaluation
-                            // received by this department.
-                            // ---------------------------------
-                            let scores;
 
+            departmentMap.set(
 
-                            if (
-                                normalizedRole ===
-                                "ADMIN"
-                            ) {
+                evaluatorId,
 
-                                scores =
-                                    evaluations
-                                        .filter(
+                {
 
-                                            evaluation =>
+                    department_id:
+                        evaluatorId,
 
-                                                Number(
-                                                    evaluation.survey_id
-                                                ) ===
-                                                Number(
-                                                    survey.survey_id
-                                                )
+                    department_code:
+                        row.evaluator_department_code,
 
-                                                &&
+                    department_name:
+                        row.evaluator_department_name,
 
-                                                Number(
-                                                    evaluation.to_department_id
-                                                ) ===
-                                                targetDepartmentId
+                    Q1: null,
 
-                                        )
-                                        .map(
-                                            evaluation =>
-                                                evaluation.usi
-                                        );
+                    Q2: null,
 
-                            }
+                    Q3: null,
 
+                    Q4: null,
 
-                            // ---------------------------------
-                            // HOD
-                            //
-                            // IMPORTANT:
-                            //
-                            // FROM = logged-in HOD
-                            // TO   = target department
-                            //
-                            // This prevents a received evaluation
-                            // from another department being shown.
-                            // ---------------------------------
-
-                            else {
-
-                                scores =
-                                    evaluations
-                                        .filter(
-
-                                            evaluation =>
-
-                                                Number(
-                                                    evaluation.survey_id
-                                                ) ===
-                                                Number(
-                                                    survey.survey_id
-                                                )
-
-                                                &&
-
-                                                Number(
-                                                    evaluation.from_department_id
-                                                ) ===
-                                                Number(
-                                                    departmentId
-                                                )
-
-                                                &&
-
-                                                Number(
-                                                    evaluation.to_department_id
-                                                ) ===
-                                                targetDepartmentId
-
-                                        )
-                                        .map(
-                                            evaluation =>
-                                                evaluation.usi
-                                        );
-
-                            }
-
-
-                            return this.average(
-                                scores
-                            );
-
-                        };
-
-
-                    const q1 =
-                        getQuarterScore(
-                            "Q1"
-                        );
-
-
-                    const q2 =
-                        getQuarterScore(
-                            "Q2"
-                        );
-
-
-                    const q3 =
-                        getQuarterScore(
-                            "Q3"
-                        );
-
-
-                    const q4 =
-                        getQuarterScore(
-                            "Q4"
-                        );
-
-
-                    // -------------------------------------
-                    // YEAR AVERAGE
-                    //
-                    // Only available Q1-Q4 values.
-                    //
-                    // Special survey NEVER included.
-                    // -------------------------------------
-
-                    const yearAverage =
-                        this.average([
-
-                            q1,
-
-                            q2,
-
-                            q3,
-
-                            q4
-
-                        ]);
-
-
-                    return {
-
-                        serial_no:
-                            index + 1,
-
-                        department_id:
-                            targetDepartmentId,
-
-                        department_code:
-                            department.department_code,
-
-                        department_name:
-                            department.department_name,
-
-                        q1,
-
-                        q2,
-
-                        q3,
-
-                        q4,
-
-                        year_average:
-                            yearAverage
-
-                    };
+                    yearly_average:
+                        null
 
                 }
 
             );
 
+        }
+
 
         // =================================================
-        // 7. BOTTOM AVERAGE
+        // GROUP SCORES
         //
-        // Requirement:
-        // HOD report must show AVERAGE row.
+        // Evaluator Department + Quarter
         //
-        // Admin report:
-        // No bottom average required.
+        // Example:
+        //
+        // Agri + Q1
+        // Accounts + Q1
+        // QA + Q1
+        //
+        // Only submitted feedback is counted.
         // =================================================
 
-        let averages =
-            null;
+        const quarterScores =
+            new Map();
 
 
-        if (
-            normalizedRole === "HOD"
+        for (
+            const row
+            of rows
         ) {
 
-            averages = {
+            const evaluatorId =
+                Number(
+                    row.evaluator_department_id
+                );
 
-                q1:
-                    this.average(
-                        rows.map(
-                            row =>
-                                row.q1
-                        )
-                    ),
 
-                q2:
-                    this.average(
-                        rows.map(
-                            row =>
-                                row.q2
-                        )
-                    ),
+            const quarter =
+                String(
+                    row.quarter || ""
+                )
+                    .trim()
+                    .toUpperCase();
 
-                q3:
-                    this.average(
-                        rows.map(
-                            row =>
-                                row.q3
-                        )
-                    ),
 
-                q4:
-                    this.average(
-                        rows.map(
-                            row =>
-                                row.q4
-                        )
-                    ),
+            if (
+                !departmentMap.has(
+                    evaluatorId
+                )
+            ) {
 
-                year_average:
-                    this.average(
-                        rows.map(
-                            row =>
-                                row.year_average
-                        )
+                continue;
+
+            }
+
+
+            if (
+                !this.GENERAL_QUARTERS
+                    .includes(
+                        quarter
                     )
+            ) {
 
-            };
+                continue;
+
+            }
+
+
+            const feedbackId =
+                Number(
+                    row.feedback_id
+                );
+
+
+            if (
+                !feedbackId ||
+                !scoreMap.has(
+                    feedbackId
+                )
+            ) {
+
+                continue;
+
+            }
+
+
+            const score =
+                scoreMap.get(
+                    feedbackId
+                );
+
+
+            if (
+                score === null
+            ) {
+
+                continue;
+
+            }
+
+
+            const key =
+                `${evaluatorId}_${quarter}`;
+
+
+            if (
+                !quarterScores.has(
+                    key
+                )
+            ) {
+
+                quarterScores.set(
+                    key,
+                    []
+                );
+
+            }
+
+
+            quarterScores
+                .get(key)
+                .push(
+                    score
+                );
 
         }
 
 
         // =================================================
-        // 8. RESPONSE
+        // APPLY QUARTERLY SCORES
+        // =================================================
+
+        for (
+            const [
+                key,
+                scores
+            ]
+            of quarterScores
+        ) {
+
+            const [
+                departmentId,
+                quarter
+            ] =
+                key.split("_");
+
+
+            const department =
+                departmentMap.get(
+                    Number(
+                        departmentId
+                    )
+                );
+
+
+            if (
+                !department
+            ) {
+
+                continue;
+
+            }
+
+
+            department[quarter] =
+                this.calculateAverage(
+                    scores
+                );
+
+        }
+
+
+        // =================================================
+        // YEARLY AVERAGE PER EVALUATOR
+        //
+        // Example:
+        //
+        // Agri:
+        //
+        // Q1 = 4.20
+        // Q2 = 4.00
+        // Q3 = null
+        // Q4 = null
+        //
+        // Yearly = 4.10
+        // =================================================
+
+        for (
+            const department
+            of departmentMap.values()
+        ) {
+
+            department.yearly_average =
+                this.calculateAverage(
+                    [
+                        department.Q1,
+                        department.Q2,
+                        department.Q3,
+                        department.Q4
+                    ]
+                );
+
+        }
+
+
+        const departments =
+            [
+                ...departmentMap.values()
+            ]
+                .sort(
+                    (
+                        a,
+                        b
+                    ) =>
+                        String(
+                            a.department_name || ""
+                        )
+                            .localeCompare(
+                                String(
+                                    b.department_name || ""
+                                )
+                            )
+                );
+
+
+        // =================================================
+        // QUARTERLY AVERAGE
+        //
+        // Bottom AVERAGE row.
+        //
+        // Average of evaluator departments.
+        // Non-evaluated departments excluded.
+        // =================================================
+
+        const quarterlyAverage = {
+
+            Q1:
+                this.calculateAverage(
+                    departments.map(
+                        department =>
+                            department.Q1
+                    )
+                ),
+
+            Q2:
+                this.calculateAverage(
+                    departments.map(
+                        department =>
+                            department.Q2
+                    )
+                ),
+
+            Q3:
+                this.calculateAverage(
+                    departments.map(
+                        department =>
+                            department.Q3
+                    )
+                ),
+
+            Q4:
+                this.calculateAverage(
+                    departments.map(
+                        department =>
+                            department.Q4
+                    )
+                )
+
+        };
+
+
+        // =================================================
+        // HOD YEARLY AVERAGE
+        //
+        // Average of evaluator department yearly averages.
+        // =================================================
+
+        const yearlyAverage =
+            this.calculateAverage(
+
+                departments.map(
+                    department =>
+                        department.yearly_average
+                )
+
+            );
+
+
+        // =================================================
+        // REPORT
         // =================================================
 
         return {
 
             report_type:
-                "quarterly",
+                "hod_general",
 
-            year:
-                yearLabel,
-
-            year_start:
-                financialYear,
-
-            year_end:
-                financialYear + 1,
-
-            role:
-                normalizedRole,
-
-            // ---------------------------------------------
-            // HOD INFORMATION
-            // ---------------------------------------------
-
-            department_id:
-                normalizedRole === "HOD"
-                    ? Number(
-                        departmentId
-                    )
-                    : null,
-
-            department_name:
-                normalizedRole === "HOD"
-                    ? await this.getHODDepartmentName(
-                        departmentId
-                    )
-                    : null,
-
-            // ---------------------------------------------
-            // Q1-Q4 SURVEYS
-            // ---------------------------------------------
-
-            surveys:
-                quarterlySurveys,
-
-            // ---------------------------------------------
-            // TABLE COLUMNS
-            // ---------------------------------------------
+            financial_year:
+                year,
 
             columns: [
+
+                "Department",
 
                 "Q1",
 
@@ -1395,21 +745,17 @@ class ReportService {
 
                 "Q4",
 
-                "Year Average"
+                "Yearly Average"
 
             ],
 
-            // ---------------------------------------------
-            // TABLE ROWS
-            // ---------------------------------------------
+            departments,
 
-            rows,
+            quarterly_average:
+                quarterlyAverage,
 
-            // ---------------------------------------------
-            // HOD ONLY AVERAGE
-            // ---------------------------------------------
-
-            averages
+            yearly_average:
+                yearlyAverage
 
         };
 
@@ -1417,707 +763,1283 @@ class ReportService {
 
 
     // =====================================================
-    // SPECIAL SURVEY REPORT
+    // HOD - SPECIAL REPORT
     //
-    // COMPLETELY SEPARATE FROM QUARTERLY REPORT.
+    // IMPORTANT:
     //
-    // ADMIN:
-    //     All departments
+    // Same evaluator-wise concept as General report.
     //
-    // HOD:
-    //     Departments evaluated by HOD
+    // The rows represent departments which evaluate
+    // the HOD's target department.
     // =====================================================
 
-    async getSpecialSurveyReport(
-        surveyId,
-        role,
-        departmentId
+    async getHodSpecialReport(
+        userId,
+        financialYear
     ) {
 
-        const normalizedRole =
-            this.normalizeRole(
-                role
+        const year =
+            this.validateFinancialYear(
+                financialYear
             );
 
-
-        // -------------------------------------------------
-        // ROLE
-        // -------------------------------------------------
-
-        if (
-            normalizedRole !== "ADMIN" &&
-            normalizedRole !== "HOD"
-        ) {
-
-            throw new ApiError(
-                403,
-                "Only Admin and HOD can access reports"
-            );
-
-        }
-
-
-        // -------------------------------------------------
-        // SURVEY ID
-        // -------------------------------------------------
-
-        const resolvedSurveyId =
-            Number(
-                surveyId
-            );
-
-
-        if (
-            !Number.isInteger(
-                resolvedSurveyId
-            ) ||
-            resolvedSurveyId <= 0
-        ) {
-
-            throw new ApiError(
-                400,
-                "survey_id is required"
-            );
-
-        }
-
-
-        // =================================================
-        // 1. GET SURVEY
-        // =================================================
-
-        const survey =
-            await reportRepository
-                .findSurveyById(
-                    resolvedSurveyId
-                );
-
-
-        if (
-            !survey
-        ) {
-
-            throw new ApiError(
-                404,
-                "Survey not found"
-            );
-
-        }
-
-
-        // =================================================
-        // 2. VERIFY SPECIAL SURVEY
-        // =================================================
-
-        if (
-            this.normalizeSurveyType(
-                survey.survey_type
-            ) !== "special"
-        ) {
-
-            throw new ApiError(
-                400,
-                "Selected survey is not a special survey"
-            );
-
-        }
-
-
-        // =================================================
-        // 3. GET TARGET DEPARTMENTS
-        // =================================================
-
-        let departments;
-
-
-        if (
-            normalizedRole === "ADMIN"
-        ) {
-
-            departments =
-                await reportRepository
-                    .findAllDepartments();
-
-        }
-
-        else {
-
-            departments =
-                await reportRepository
-                    .findHODTargetDepartmentsForSurvey(
-
-                        departmentId,
-
-                        resolvedSurveyId
-
-                    );
-
-
-            // ---------------------------------------------
-            // Remove HOD's own department
-            // ---------------------------------------------
-
-            departments =
-                departments.filter(
-
-                    department =>
-
-                        Number(
-                            department.department_id
-                        ) !==
-                        Number(
-                            departmentId
-                        )
-
-                );
-
-        }
-
-
-        // =================================================
-        // 4. GET FEEDBACK
-        // =================================================
-
-        const feedbackRows =
-            await reportRepository
-                .findSubmittedFeedbackRatings([
-
-                    resolvedSurveyId
-
-                ]);
-
-
-        const evaluations =
-            this.buildEvaluations(
-                feedbackRows
-            );
-
-
-        // =================================================
-        // 5. SPECIAL PARAMETERS
-        // =================================================
-
-        const parameters =
-            await reportRepository
-                .findActiveSpecialParameters([
-
-                    resolvedSurveyId
-
-                ]);
-
-
-        // =================================================
-        // 6. BUILD ROWS
-        // =================================================
 
         const rows =
-            departments.map(
-
-                (
-                    department,
-                    index
-                ) => {
-
-                    const targetDepartmentId =
-                        Number(
-                            department.department_id
-                        );
+            await reportRepository
+                .getHodSpecialReportSource(
+                    Number(userId),
+                    year
+                );
 
 
-                    let scores;
+        const surveys =
+            await reportRepository
+                .getHodSurveys(
+                    Number(userId),
+                    year,
+                    "special"
+                );
 
 
-                    // -------------------------------------
-                    // ADMIN
-                    // -------------------------------------
-
-                    if (
-                        normalizedRole ===
-                        "ADMIN"
-                    ) {
-
-                        scores =
-                            evaluations
-                                .filter(
-
-                                    evaluation =>
-
-                                        Number(
-                                            evaluation.survey_id
-                                        ) ===
-                                        resolvedSurveyId
-
-                                        &&
-
-                                        Number(
-                                            evaluation.to_department_id
-                                        ) ===
-                                        targetDepartmentId
-
-                                )
-                                .map(
-                                    evaluation =>
-                                        evaluation.usi
-                                );
-
-                    }
-
-
-                    // -------------------------------------
-                    // HOD
-                    //
-                    // FROM = HOD
-                    // TO   = target
-                    // -------------------------------------
-
-                    else {
-
-                        scores =
-                            evaluations
-                                .filter(
-
-                                    evaluation =>
-
-                                        Number(
-                                            evaluation.survey_id
-                                        ) ===
-                                        resolvedSurveyId
-
-                                        &&
-
-                                        Number(
-                                            evaluation.from_department_id
-                                        ) ===
-                                        Number(
-                                            departmentId
-                                        )
-
-                                        &&
-
-                                        Number(
-                                            evaluation.to_department_id
-                                        ) ===
-                                        targetDepartmentId
-
-                                )
-                                .map(
-                                    evaluation =>
-                                        evaluation.usi
-                                );
-
-                    }
-
-
-                    return {
-
-                        serial_no:
-                            index + 1,
-
-                        department_id:
-                            targetDepartmentId,
-
-                        department_code:
-                            department.department_code,
-
-                        department_name:
-                            department.department_name,
-
-                        special_score:
-                            this.average(
-                                scores
-                            )
-
-                    };
-
-                }
-
+        const scoreMap =
+            await this.buildScoreMap(
+                rows
             );
 
 
         // =================================================
-        // 7. HOD AVERAGE
+        // SPECIAL SURVEY NUMBERING
         // =================================================
 
-        const averageScore =
-            this.average(
-
-                rows.map(
-                    row =>
-                        row.special_score
-                )
-
-            );
+        const specialSurveyMap =
+            new Map();
 
 
-        // =================================================
-        // 8. RESPONSE
-        // =================================================
+        surveys.forEach(
+            (
+                survey,
+                index
+            ) => {
 
-        return {
+                specialSurveyMap.set(
 
-            report_type:
-                "special",
-
-            survey: {
-
-                survey_id:
                     Number(
                         survey.survey_id
                     ),
 
-                survey_name:
-                    survey.survey_name,
+                    {
 
-                survey_type:
-                    "special",
+                        survey_id:
+                            survey.survey_id,
 
-                start_date:
-                    survey.start_date,
+                        survey_name:
+                            survey.survey_name,
 
-                end_date:
-                    survey.end_date
+                        label:
+                            `${this.SPECIAL_PREFIX} ${index + 1}`
 
-            },
+                    }
 
-            role:
-                normalizedRole,
-
-            department_id:
-                normalizedRole === "HOD"
-                    ? Number(
-                        departmentId
-                    )
-                    : null,
-
-            department_name:
-                normalizedRole === "HOD"
-                    ? await this.getHODDepartmentName(
-                        departmentId
-                    )
-                    : null,
-
-            parameters,
-
-            columns: [
-
-                "Special Survey Score"
-
-            ],
-
-            rows,
-
-            // ---------------------------------------------
-            // HOD:
-            // Show average
-            //
-            // ADMIN:
-            // Keep null
-            // ---------------------------------------------
-
-            average:
-                normalizedRole === "HOD"
-                    ? averageScore
-                    : null
-
-        };
-
-    }
-
-
-    // =====================================================
-    // OLD EXCEL EXPORT
-    //
-    // Kept compatible.
-    // =====================================================
-
-    async exportExcelReport(
-        surveyId
-    ) {
-
-        const resolvedId =
-            await dashboardService
-                .resolveSurveyId(
-                    surveyId
                 );
 
-
-        if (
-            !resolvedId
-        ) {
-
-            throw new ApiError(
-                400,
-                "No survey data available to export"
-            );
-
-        }
-
-
-        const survey =
-            await surveyRepository
-                .findById(
-                    resolvedId
-                );
-
-
-        const data =
-            await dashboardService
-                .getDepartmentAnalytics(
-                    resolvedId
-                );
-
-
-        const headers = [
-
-            "Department Code",
-
-            "Department Name",
-
-            "Average Score Received (Out of 5)",
-
-            "Average Score Given (Out of 5)"
-
-        ];
-
-
-        const rows =
-            data.map(
-                item => [
-
-                    item.department_code,
-
-                    item.department_name,
-
-                    item.average_score_received,
-
-                    item.average_score_given
-
-                ]
-            );
-
-
-        return {
-
-            filename:
-                `USI_Report_Survey_${resolvedId}.xlsx`,
-
-            buffer:
-                await generateExcelReport(
-
-                    headers,
-
-                    rows,
-
-                    "USI Scores Summary"
-
-                )
-
-        };
-
-    }
-
-
-    // =====================================================
-    // OLD PDF EXPORT
-    //
-    // Kept compatible.
-    // =====================================================
-
-    async exportPDFReport(
-        surveyId,
-        departmentId
-    ) {
-
-        const resolvedId =
-            await dashboardService
-                .resolveSurveyId(
-                    surveyId
-                );
-
-
-        if (
-            !resolvedId
-        ) {
-
-            throw new ApiError(
-                400,
-                "No survey data available to export"
-            );
-
-        }
-
-
-        const survey =
-            await surveyRepository
-                .findById(
-                    resolvedId
-                );
+            }
+        );
 
 
         // =================================================
-        // DEPARTMENT SPECIFIC PDF
+        // EVALUATOR DEPARTMENT MAP
         // =================================================
 
-        if (
-            departmentId
+        const departmentMap =
+            new Map();
+
+
+        for (
+            const row
+            of rows
         ) {
 
-            const dept =
-                await departmentRepository
-                    .findById(
-                        departmentId
-                    );
+            const evaluatorId =
+                Number(
+                    row.evaluator_department_id
+                );
 
 
             if (
-                !dept
+                !evaluatorId
             ) {
 
-                throw new ApiError(
-                    404,
-                    "Department not found"
+                continue;
+
+            }
+
+
+            if (
+                departmentMap.has(
+                    evaluatorId
+                )
+            ) {
+
+                continue;
+
+            }
+
+
+            const result = {
+
+                department_id:
+                    evaluatorId,
+
+                department_code:
+                    row.evaluator_department_code,
+
+                department_name:
+                    row.evaluator_department_name
+
+            };
+
+
+            for (
+                const special
+                of specialSurveyMap.values()
+            ) {
+
+                result[
+                    special.label
+                ] = null;
+
+            }
+
+
+            departmentMap.set(
+                evaluatorId,
+                result
+            );
+
+        }
+
+
+        // =================================================
+        // RAW SPECIAL SCORES
+        //
+        // Evaluator Department + Survey
+        // =================================================
+
+        const specialScores =
+            new Map();
+
+
+        for (
+            const row
+            of rows
+        ) {
+
+            const evaluatorId =
+                Number(
+                    row.evaluator_department_id
+                );
+
+
+            const surveyId =
+                Number(
+                    row.survey_id
+                );
+
+
+            if (
+                !departmentMap.has(
+                    evaluatorId
+                )
+            ) {
+
+                continue;
+
+            }
+
+
+            const special =
+                specialSurveyMap.get(
+                    surveyId
+                );
+
+
+            if (
+                !special
+            ) {
+
+                continue;
+
+            }
+
+
+            const feedbackId =
+                Number(
+                    row.feedback_id
+                );
+
+
+            if (
+                !feedbackId ||
+                !scoreMap.has(
+                    feedbackId
+                )
+            ) {
+
+                continue;
+
+            }
+
+
+            const score =
+                scoreMap.get(
+                    feedbackId
+                );
+
+
+            if (
+                score === null
+            ) {
+
+                continue;
+
+            }
+
+
+            const key =
+                `${evaluatorId}_${surveyId}`;
+
+
+            if (
+                !specialScores.has(
+                    key
+                )
+            ) {
+
+                specialScores.set(
+                    key,
+                    []
                 );
 
             }
 
 
-            const details =
-                await dashboardService
-                    .getDepartmentDetailedAnalytics(
-
-                        resolvedId,
-
-                        departmentId
-
-                    );
-
-
-            const headers = [
-
-                "Parameter Name",
-
-                "Description",
-
-                "Weightage (%)",
-
-                "Average Rating (Out of 5)"
-
-            ];
-
-
-            const rows =
-                details.parameter_scores.map(
-                    item => [
-
-                        item.parameter_name,
-
-                        item.description,
-
-                        `${item.weightage}%`,
-
-                        item.average_rating
-
-                    ]
+            specialScores
+                .get(key)
+                .push(
+                    score
                 );
-
-
-            const buffer =
-                await generatePDFReport(
-
-                    `Survey: ${survey.survey_name}\n` +
-                    `Detailed Performance Report: ` +
-                    `${dept.department_name} ` +
-                    `(${dept.department_code})`,
-
-                    headers,
-
-                    rows
-
-                );
-
-
-            return {
-
-                filename:
-                    `USI_Report_${dept.department_code}_Survey_${resolvedId}.pdf`,
-
-                buffer
-
-            };
 
         }
 
 
         // =================================================
-        // GENERAL PDF
+        // APPLY SPECIAL SCORES
         // =================================================
 
-        const data =
-            await dashboardService
-                .getDepartmentAnalytics(
-                    resolvedId
+        for (
+            const [
+                key,
+                scores
+            ]
+            of specialScores
+        ) {
+
+            const [
+                departmentId,
+                surveyId
+            ] =
+                key.split("_");
+
+
+            const department =
+                departmentMap.get(
+                    Number(
+                        departmentId
+                    )
                 );
 
 
-        const headers = [
-
-            "Code",
-
-            "Department Name",
-
-            "Score Received (Out of 5)",
-
-            "Score Given (Out of 5)"
-
-        ];
+            const special =
+                specialSurveyMap.get(
+                    Number(
+                        surveyId
+                    )
+                );
 
 
-        const rows =
-            data.map(
-                item => [
+            if (
+                !department ||
+                !special
+            ) {
 
-                    item.department_code,
+                continue;
 
-                    item.department_name,
+            }
 
-                    item.average_score_received,
 
-                    item.average_score_given
+            department[
+                special.label
+            ] =
+                this.calculateAverage(
+                    scores
+                );
 
+        }
+
+
+        const departments =
+            [
+                ...departmentMap.values()
+            ]
+                .sort(
+                    (
+                        a,
+                        b
+                    ) =>
+                        String(
+                            a.department_name || ""
+                        )
+                            .localeCompare(
+                                String(
+                                    b.department_name || ""
+                                )
+                            )
+                );
+
+
+        // =================================================
+        // SPECIAL AVERAGES
+        // =================================================
+
+        const specialAverage = {};
+
+
+        for (
+            const special
+            of specialSurveyMap.values()
+        ) {
+
+            specialAverage[
+                special.label
+            ] =
+                this.calculateAverage(
+
+                    departments.map(
+                        department =>
+                            department[
+                                special.label
+                            ]
+                    )
+
+                );
+
+        }
+
+
+        // =================================================
+        // REPORT
+        // =================================================
+
+        return {
+
+            report_type:
+                "hod_special",
+
+            financial_year:
+                year,
+
+            columns: [
+
+                "Department",
+
+                ...[
+                    ...specialSurveyMap.values()
                 ]
+                    .map(
+                        special =>
+                            special.label
+                    )
+
+            ],
+
+            special_surveys:
+                [
+                    ...specialSurveyMap.values()
+                ],
+
+            departments,
+
+            special_average:
+                specialAverage
+
+        };
+
+    }
+
+
+    // =====================================================
+    // ADMIN - GENERAL REPORT
+    //
+    // ADMIN LOGIC REMAINS UNCHANGED.
+    //
+    // Department | Q1 | Q2 | Q3 | Q4 | Yearly Average
+    // =====================================================
+
+    async getAdminGeneralReport(
+        financialYear
+    ) {
+
+        const year =
+            this.validateFinancialYear(
+                financialYear
             );
 
 
-        const buffer =
-            await generatePDFReport(
+        const rows =
+            await reportRepository
+                .getAdminGeneralReportSource(
+                    year
+                );
 
-                `Survey: ${survey.survey_name}\n` +
-                `Department Score Summary`,
 
-                headers,
+        const departments =
+            await reportRepository
+                .getActiveDepartments();
 
+
+        const scoreMap =
+            await this.buildScoreMap(
                 rows
+            );
+
+
+        const departmentMap =
+            new Map();
+
+
+        for (
+            const department
+            of departments
+        ) {
+
+            departmentMap.set(
+
+                Number(
+                    department.department_id
+                ),
+
+                {
+
+                    department_id:
+                        department.department_id,
+
+                    department_code:
+                        department.department_code,
+
+                    department_name:
+                        department.department_name,
+
+                    Q1: null,
+
+                    Q2: null,
+
+                    Q3: null,
+
+                    Q4: null,
+
+                    yearly_average:
+                        null
+
+                }
+
+            );
+
+        }
+
+
+        const quarterScores =
+            new Map();
+
+
+        for (
+            const row
+            of rows
+        ) {
+
+            const departmentId =
+                Number(
+                    row.target_department_id
+                );
+
+
+            const quarter =
+                String(
+                    row.quarter || ""
+                )
+                    .trim()
+                    .toUpperCase();
+
+
+            if (
+                !departmentMap.has(
+                    departmentId
+                )
+            ) {
+
+                continue;
+
+            }
+
+
+            if (
+                !this.GENERAL_QUARTERS
+                    .includes(
+                        quarter
+                    )
+            ) {
+
+                continue;
+
+            }
+
+
+            const feedbackId =
+                Number(
+                    row.feedback_id
+                );
+
+
+            if (
+                !feedbackId ||
+                !scoreMap.has(
+                    feedbackId
+                )
+            ) {
+
+                continue;
+
+            }
+
+
+            const score =
+                scoreMap.get(
+                    feedbackId
+                );
+
+
+            if (
+                score === null
+            ) {
+
+                continue;
+
+            }
+
+
+            const key =
+                `${departmentId}_${quarter}`;
+
+
+            if (
+                !quarterScores.has(
+                    key
+                )
+            ) {
+
+                quarterScores.set(
+                    key,
+                    []
+                );
+
+            }
+
+
+            quarterScores
+                .get(key)
+                .push(
+                    score
+                );
+
+        }
+
+
+        for (
+            const [
+                key,
+                scores
+            ]
+            of quarterScores
+        ) {
+
+            const [
+                departmentId,
+                quarter
+            ] =
+                key.split("_");
+
+
+            const department =
+                departmentMap.get(
+                    Number(
+                        departmentId
+                    )
+                );
+
+
+            if (
+                !department
+            ) {
+
+                continue;
+
+            }
+
+
+            department[quarter] =
+                this.calculateAverage(
+                    scores
+                );
+
+        }
+
+
+        for (
+            const department
+            of departmentMap.values()
+        ) {
+
+            department.yearly_average =
+                this.calculateAverage(
+                    [
+                        department.Q1,
+                        department.Q2,
+                        department.Q3,
+                        department.Q4
+                    ]
+                );
+
+        }
+
+
+        const resultDepartments =
+            [
+                ...departmentMap.values()
+            ];
+
+
+        const quarterlyAverage = {
+
+            Q1:
+                this.calculateAverage(
+                    resultDepartments.map(
+                        department =>
+                            department.Q1
+                    )
+                ),
+
+            Q2:
+                this.calculateAverage(
+                    resultDepartments.map(
+                        department =>
+                            department.Q2
+                    )
+                ),
+
+            Q3:
+                this.calculateAverage(
+                    resultDepartments.map(
+                        department =>
+                            department.Q3
+                    )
+                ),
+
+            Q4:
+                this.calculateAverage(
+                    resultDepartments.map(
+                        department =>
+                            department.Q4
+                    )
+                )
+
+        };
+
+
+        const yearlyAverage =
+            this.calculateAverage(
+
+                resultDepartments.map(
+                    department =>
+                        department.yearly_average
+                )
 
             );
 
 
         return {
 
-            filename:
-                `USI_General_Report_Survey_${resolvedId}.pdf`,
+            report_type:
+                "admin_general",
 
-            buffer
+            financial_year:
+                year,
+
+            columns: [
+
+                "Department",
+
+                "Q1",
+
+                "Q2",
+
+                "Q3",
+
+                "Q4",
+
+                "Yearly Average"
+
+            ],
+
+            departments:
+                resultDepartments,
+
+            quarterly_average:
+                quarterlyAverage,
+
+            yearly_average:
+                yearlyAverage
 
         };
 
     }
 
+
+    // =====================================================
+    // ADMIN - SPECIAL REPORT
+    // =====================================================
+
+    async getAdminSpecialReport(
+        financialYear
+    ) {
+
+        const year =
+            this.validateFinancialYear(
+                financialYear
+            );
+
+
+        const rows =
+            await reportRepository
+                .getAdminSpecialReportSource(
+                    year
+                );
+
+
+        const departments =
+            await reportRepository
+                .getActiveDepartments();
+
+
+        const surveys =
+            await this.getAllSpecialSurveysFromRows(
+                rows
+            );
+
+
+        const scoreMap =
+            await this.buildScoreMap(
+                rows
+            );
+
+
+        const specialSurveyMap =
+            new Map();
+
+
+        surveys.forEach(
+            (
+                survey,
+                index
+            ) => {
+
+                specialSurveyMap.set(
+
+                    Number(
+                        survey.survey_id
+                    ),
+
+                    {
+
+                        survey_id:
+                            survey.survey_id,
+
+                        survey_name:
+                            survey.survey_name,
+
+                        label:
+                            `${this.SPECIAL_PREFIX} ${index + 1}`
+
+                    }
+
+                );
+
+            }
+        );
+
+
+        const departmentMap =
+            new Map();
+
+
+        for (
+            const department
+            of departments
+        ) {
+
+            const result = {
+
+                department_id:
+                    department.department_id,
+
+                department_code:
+                    department.department_code,
+
+                department_name:
+                    department.department_name
+
+            };
+
+
+            for (
+                const special
+                of specialSurveyMap.values()
+            ) {
+
+                result[
+                    special.label
+                ] = null;
+
+            }
+
+
+            departmentMap.set(
+
+                Number(
+                    department.department_id
+                ),
+
+                result
+
+            );
+
+        }
+
+
+        const specialScores =
+            new Map();
+
+
+        for (
+            const row
+            of rows
+        ) {
+
+            const departmentId =
+                Number(
+                    row.target_department_id
+                );
+
+
+            const surveyId =
+                Number(
+                    row.survey_id
+                );
+
+
+            if (
+                !departmentMap.has(
+                    departmentId
+                )
+            ) {
+
+                continue;
+
+            }
+
+
+            const special =
+                specialSurveyMap.get(
+                    surveyId
+                );
+
+
+            if (
+                !special
+            ) {
+
+                continue;
+
+            }
+
+
+            const feedbackId =
+                Number(
+                    row.feedback_id
+                );
+
+
+            if (
+                !feedbackId ||
+                !scoreMap.has(
+                    feedbackId
+                )
+            ) {
+
+                continue;
+
+            }
+
+
+            const score =
+                scoreMap.get(
+                    feedbackId
+                );
+
+
+            if (
+                score === null
+            ) {
+
+                continue;
+
+            }
+
+
+            const key =
+                `${departmentId}_${surveyId}`;
+
+
+            if (
+                !specialScores.has(
+                    key
+                )
+            ) {
+
+                specialScores.set(
+                    key,
+                    []
+                );
+
+            }
+
+
+            specialScores
+                .get(key)
+                .push(
+                    score
+                );
+
+        }
+
+
+        for (
+            const [
+                key,
+                scores
+            ]
+            of specialScores
+        ) {
+
+            const [
+                departmentId,
+                surveyId
+            ] =
+                key.split("_");
+
+
+            const department =
+                departmentMap.get(
+                    Number(
+                        departmentId
+                    )
+                );
+
+
+            const special =
+                specialSurveyMap.get(
+                    Number(
+                        surveyId
+                    )
+                );
+
+
+            if (
+                !department ||
+                !special
+            ) {
+
+                continue;
+
+            }
+
+
+            department[
+                special.label
+            ] =
+                this.calculateAverage(
+                    scores
+                );
+
+        }
+
+
+        const resultDepartments =
+            [
+                ...departmentMap.values()
+            ];
+
+
+        const specialAverage = {};
+
+
+        for (
+            const special
+            of specialSurveyMap.values()
+        ) {
+
+            specialAverage[
+                special.label
+            ] =
+                this.calculateAverage(
+
+                    resultDepartments.map(
+                        department =>
+                            department[
+                                special.label
+                            ]
+                    )
+
+                );
+
+        }
+
+
+        return {
+
+            report_type:
+                "admin_special",
+
+            financial_year:
+                year,
+
+            columns: [
+
+                "Department",
+
+                ...[
+                    ...specialSurveyMap.values()
+                ]
+                    .map(
+                        special =>
+                            special.label
+                    )
+
+            ],
+
+            special_surveys:
+                [
+                    ...specialSurveyMap.values()
+                ],
+
+            departments:
+                resultDepartments,
+
+            special_average:
+                specialAverage
+
+        };
+
+    }
+
+
+    // =====================================================
+    // GET ALL SPECIAL SURVEYS FROM SOURCE ROWS
+    // =====================================================
+
+    async getAllSpecialSurveysFromRows(
+        rows
+    ) {
+
+        const surveyMap =
+            new Map();
+
+
+        for (
+            const row
+            of rows
+        ) {
+
+            const surveyId =
+                Number(
+                    row.survey_id
+                );
+
+
+            if (
+                !surveyId
+            ) {
+
+                continue;
+
+            }
+
+
+            if (
+                !surveyMap.has(
+                    surveyId
+                )
+            ) {
+
+                surveyMap.set(
+
+                    surveyId,
+
+                    {
+
+                        survey_id:
+                            row.survey_id,
+
+                        survey_name:
+                            row.survey_name,
+
+                        survey_type:
+                            row.survey_type,
+
+                        financial_year:
+                            row.financial_year
+
+                    }
+
+                );
+
+            }
+
+        }
+
+
+        return [
+            ...surveyMap.values()
+        ]
+            .sort(
+                (
+                    a,
+                    b
+                ) =>
+                    Number(
+                        a.survey_id
+                    ) -
+                    Number(
+                        b.survey_id
+                    )
+            );
+
+    }
+
+
+    // =====================================================
+    // GET HOD GENERAL
+    // =====================================================
+
+    async getHodGeneral(
+        user,
+        financialYear
+    ) {
+
+        if (
+            !user ||
+            !user.user_id
+        ) {
+
+            throw new ApiError(
+                401,
+                "Authenticated user is required."
+            );
+
+        }
+
+
+        return await this
+            .getHodGeneralReport(
+                user.user_id,
+                financialYear
+            );
+
+    }
+
+
+    // =====================================================
+    // GET HOD SPECIAL
+    // =====================================================
+
+    async getHodSpecial(
+        user,
+        financialYear
+    ) {
+
+        if (
+            !user ||
+            !user.user_id
+        ) {
+
+            throw new ApiError(
+                401,
+                "Authenticated user is required."
+            );
+
+        }
+
+
+        return await this
+            .getHodSpecialReport(
+                user.user_id,
+                financialYear
+            );
+
+    }
+
+
+    // =====================================================
+    // GET ADMIN GENERAL
+    // =====================================================
+
+    async getAdminGeneral(
+        financialYear
+    ) {
+
+        return await this
+            .getAdminGeneralReport(
+                financialYear
+            );
+
+    }
+
+
+    // =====================================================
+    // GET ADMIN SPECIAL
+    // =====================================================
+
+    async getAdminSpecial(
+        financialYear
+    ) {
+
+        return await this
+            .getAdminSpecialReport(
+                financialYear
+            );
+
+    }
+
 }
 
-
-// =====================================================
-// EXPORT
-// =====================================================
 
 module.exports =
     new ReportService();

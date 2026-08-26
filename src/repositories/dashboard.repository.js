@@ -1,467 +1,214 @@
 const { pool } = require("../config/db");
 
 class DashboardRepository {
-    /**
-     * Get basic count stats for a survey.
-     */
-    async getSummaryMetrics(surveyId) {
 
     // =====================================================
-    // TOTAL ACTIVE DEPARTMENTS
+    // GET TARGET DEPARTMENTS
+    //
+    // Departments which are configured as target departments
+    // in at least one survey.
     // =====================================================
 
-    const [deptCount] = await pool.query(`
-        SELECT COUNT(*) AS count
-        FROM departments
-        WHERE status = 'active'
-    `);
+    async findTargetDepartments() {
 
-
-    // =====================================================
-    // TOTAL ACTIVE DEPARTMENT MAPPINGS
-    // =====================================================
-
-    const [mappingCount] = await pool.query(`
-        SELECT COUNT(*) AS count
-        FROM department_mappings
-        WHERE status = 'active'
-    `);
-
-
-    // =====================================================
-    // FEEDBACK STATISTICS
-    // =====================================================
-
-    const feedbackStatsQuery = `
-        SELECT
-            COUNT(*) AS total_feedbacks,
-
-            SUM(
-                CASE
-                    WHEN status = 'submitted'
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS submitted_feedbacks,
-
-            SUM(
-                CASE
-                    WHEN status = 'draft'
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS draft_feedbacks
-
-        FROM feedbacks
-
-        WHERE survey_id = ?
-    `;
-
-
-    const [feedbackStats] =
-        await pool.query(
-            feedbackStatsQuery,
-            [surveyId]
-        );
-
-
-    // =====================================================
-    // OVERALL AVERAGE SCORE
-    // =====================================================
-
-    const avgScoreQuery = `
-        SELECT
-            AVG(fb_score.score) AS overall_avg_score
-
-        FROM (
-
-            SELECT
-                f.feedback_id,
-
-                SUM(
-                    fd.rating * p.weightage
-                )
-                /
-                NULLIF(
-                    SUM(p.weightage),
-                    0
-                ) AS score
-
-            FROM feedbacks f
-
-            JOIN feedback_details fd
-                ON f.feedback_id = fd.feedback_id
-
-            JOIN parameters p
-                ON fd.parameter_id = p.parameter_id
-
-            WHERE
-                f.survey_id = ?
-                AND f.status = 'submitted'
-
-            GROUP BY
-                f.feedback_id
-
-        ) fb_score
-    `;
-
-
-    const [avgScore] =
-        await pool.query(
-            avgScoreQuery,
-            [surveyId]
-        );
-
-
-    // =====================================================
-    // SAFE NUMBER CONVERSION
-    // =====================================================
-
-    const overallAverageScore =
-        Number(
-            avgScore?.[0]?.overall_avg_score ?? 0
-        );
-
-
-    // =====================================================
-    // FINAL RESPONSE
-    // =====================================================
-
-    return {
-
-        total_departments:
-            Number(
-                deptCount?.[0]?.count ?? 0
-            ),
-
-        expected_feedbacks:
-            Number(
-                mappingCount?.[0]?.count ?? 0
-            ),
-
-        total_feedbacks:
-            Number(
-                feedbackStats?.[0]?.total_feedbacks ?? 0
-            ),
-
-        submitted_feedbacks:
-            Number(
-                feedbackStats?.[0]?.submitted_feedbacks ?? 0
-            ),
-
-        draft_feedbacks:
-            Number(
-                feedbackStats?.[0]?.draft_feedbacks ?? 0
-            ),
-
-        overall_average_score:
-            Number(
-                overallAverageScore.toFixed(2)
-            )
-
-    };
-
-}
-
-    /**
-     * Get average ratings received (To Dept) and given (From Dept) for all active departments.
-     */
-    async getDepartmentWiseScores(surveyId) {
         const query = `
-            SELECT 
+            SELECT DISTINCT
+
                 d.department_id,
                 d.department_code,
-                d.department_name,
-                COALESCE(rec.avg_received, 0) AS average_score_received,
-                COALESCE(giv.avg_given, 0) AS average_score_given
-            FROM departments d
-            
-            -- Left join for received scores
-            LEFT JOIN (
-                SELECT f.to_department_id, AVG(fb_score.score) AS avg_received
-                FROM feedbacks f
-                JOIN (
-                    SELECT f.feedback_id, SUM(fd.rating * p.weightage) / SUM(p.weightage) AS score
-                    FROM feedbacks f
-                    JOIN feedback_details fd ON f.feedback_id = fd.feedback_id
-                    JOIN parameters p ON fd.parameter_id = p.parameter_id
-                    WHERE f.survey_id = ? AND f.status = 'submitted'
-                    GROUP BY f.feedback_id
-                ) fb_score ON f.feedback_id = fb_score.feedback_id
-                GROUP BY f.to_department_id
-            ) rec ON d.department_id = rec.to_department_id
-            
-            -- Left join for given scores
-            LEFT JOIN (
-                SELECT f.from_department_id, AVG(fb_score.score) AS avg_given
-                FROM feedbacks f
-                JOIN (
-                    SELECT f.feedback_id, SUM(fd.rating * p.weightage) / SUM(p.weightage) AS score
-                    FROM feedbacks f
-                    JOIN feedback_details fd ON f.feedback_id = fd.feedback_id
-                    JOIN parameters p ON fd.parameter_id = p.parameter_id
-                    WHERE f.survey_id = ? AND f.status = 'submitted'
-                    GROUP BY f.feedback_id
-                ) fb_score ON f.feedback_id = fb_score.feedback_id
-                GROUP BY f.from_department_id
-            ) giv ON d.department_id = giv.from_department_id
-            
-            WHERE d.status = 'active'
-            ORDER BY d.department_name ASC
+                d.department_name
+
+            FROM survey_departments sd
+
+            INNER JOIN surveys s
+                ON s.survey_id = sd.survey_id
+
+            INNER JOIN departments d
+                ON d.department_id = sd.department_id
+
+            WHERE
+                d.status = 'active'
+
+                AND s.status <> 'draft'
+
+            ORDER BY
+                d.department_name ASC
         `;
-        const [rows] = await pool.query(query, [surveyId, surveyId]);
-        return rows.map(r => ({
-            ...r,
-            average_score_received: parseFloat(parseFloat(r.average_score_received).toFixed(2)),
-            average_score_given: parseFloat(parseFloat(r.average_score_given).toFixed(2))
-        }));
+
+        const [rows] =
+            await pool.query(query);
+
+        return rows;
     }
 
 
     // =====================================================
-// DEPARTMENT EVALUATION OVERVIEW
-// Evaluator Department → Target Departments
-// Includes Feedback Status + Score
-// =====================================================
+    // FIND LATEST SURVEY
+    //
+    // Target Department + Quarter
+    //
+    // If multiple surveys exist for same combination,
+    // latest survey_id is selected.
+    // =====================================================
 
-async getDepartmentEvaluationOverview(surveyId) {
+    async findSurveyByTargetDepartmentAndQuarter(
+        targetDepartmentId,
+        quarter
+    ) {
 
-    const query = `
-        SELECT
-            from_dept.department_id AS from_department_id,
-            from_dept.department_name AS from_department_name,
-            from_dept.department_code AS from_department_code,
-
-            dm.mapping_id,
-
-            to_dept.department_id AS to_department_id,
-            to_dept.department_name AS to_department_name,
-            to_dept.department_code AS to_department_code,
-
-            COALESCE(f.feedback_id, NULL) AS feedback_id,
-
-            COALESCE(
-                f.status,
-                'not_started'
-            ) AS feedback_status,
-
-            f.submitted_on,
-
-            score_data.score
-
-        FROM department_mappings dm
-
-        JOIN departments from_dept
-            ON dm.from_department_id =
-               from_dept.department_id
-
-        JOIN departments to_dept
-            ON dm.to_department_id =
-               to_dept.department_id
-
-        LEFT JOIN feedbacks f
-            ON f.survey_id = ?
-            AND f.from_department_id =
-                dm.from_department_id
-            AND f.to_department_id =
-                dm.to_department_id
-
-        LEFT JOIN (
-
+        const query = `
             SELECT
-                f2.feedback_id,
 
-                SUM(
-                    fd.rating * p.weightage
-                )
-                /
-                NULLIF(
-                    SUM(p.weightage),
-                    0
-                ) AS score
+                s.survey_id,
+                s.survey_name,
+                s.survey_type,
+                s.financial_year,
+                s.quarter,
+                s.start_date,
+                s.end_date,
+                s.status,
+                s.created_by
 
-            FROM feedbacks f2
+            FROM surveys s
 
-            JOIN feedback_details fd
-                ON f2.feedback_id =
-                   fd.feedback_id
-
-            JOIN parameters p
-                ON fd.parameter_id =
-                   p.parameter_id
+            INNER JOIN survey_departments sd
+                ON sd.survey_id = s.survey_id
 
             WHERE
-                f2.survey_id = ?
-                AND f2.status = 'submitted'
+                sd.department_id = ?
 
-            GROUP BY
-                f2.feedback_id
+                AND s.quarter = ?
 
-        ) score_data
+                AND s.status <> 'draft'
 
-            ON f.feedback_id =
-               score_data.feedback_id
+            ORDER BY
+                s.survey_id DESC
 
-        WHERE
-            dm.status = 'active'
-
-            AND from_dept.status = 'active'
-
-            AND to_dept.status = 'active'
-
-        ORDER BY
-            from_dept.department_name ASC,
-            to_dept.department_name ASC
-    `;
-
-
-    const [rows] =
-        await pool.query(
-            query,
-            [
-                surveyId,
-                surveyId
-            ]
-        );
-
-
-    return rows.map(row => ({
-
-        from_department_id:
-            Number(row.from_department_id),
-
-        from_department_name:
-            row.from_department_name,
-
-        from_department_code:
-            row.from_department_code,
-
-        mapping_id:
-            Number(row.mapping_id),
-
-        to_department_id:
-            Number(row.to_department_id),
-
-        to_department_name:
-            row.to_department_name,
-
-        to_department_code:
-            row.to_department_code,
-
-        feedback_id:
-            row.feedback_id
-                ? Number(row.feedback_id)
-                : null,
-
-        feedback_status:
-            row.feedback_status,
-
-        submitted_on:
-            row.submitted_on || null,
-
-        score:
-            row.score !== null
-                ? Number(
-                    Number(row.score).toFixed(2)
-                )
-                : null
-
-    }));
-
-}
-
-    /**
-     * Get detailed feedback ratings received by a specific department, broken down by parameter.
-     */
-    async getDepartmentParameterScores(surveyId, departmentId) {
-
-    const query = `
-        SELECT
-            p.parameter_id,
-            p.parameter_name,
-            p.description,
-            p.weightage,
-            AVG(fd.rating) AS average_rating
-
-        FROM feedbacks f
-
-        INNER JOIN feedback_details fd
-            ON f.feedback_id = fd.feedback_id
-
-        INNER JOIN parameters p
-            ON fd.parameter_id = p.parameter_id
-
-        WHERE
-            f.survey_id = ?
-            AND f.to_department_id = ?
-            AND f.status = 'submitted'
-            AND p.status = 'active'
-
-        GROUP BY
-            p.parameter_id,
-            p.parameter_name,
-            p.description,
-            p.weightage,
-            p.display_order
-
-        ORDER BY
-            p.display_order ASC
-    `;
-
-
-    const [rows] =
-        await pool.query(
-            query,
-            [
-                surveyId,
-                departmentId
-            ]
-        );
-
-
-    return rows.map(row => ({
-
-        ...row,
-
-        average_rating:
-            row.average_rating !== null
-                ? Number(
-                    Number(
-                        row.average_rating
-                    ).toFixed(2)
-                )
-                : 0
-
-    }));
-
-}
-
-    /**
-     * Get a cross-tabulation mapping matrix between departments for the survey.
-     * E.g., From HR to IT, Finance to IT, etc.
-     */
-    async getFeedbackMatrix(surveyId) {
-        const query = `
-            SELECT 
-                f.from_department_id,
-                fd_from.department_code AS from_department_code,
-                f.to_department_id,
-                fd_to.department_code AS to_department_code,
-                SUM(fd.rating * p.weightage) / SUM(p.weightage) AS score
-            FROM feedbacks f
-            JOIN feedback_details fd ON f.feedback_id = fd.feedback_id
-            JOIN parameters p ON fd.parameter_id = p.parameter_id
-            JOIN departments fd_from ON f.from_department_id = fd_from.department_id
-            JOIN departments fd_to ON f.to_department_id = fd_to.department_id
-            WHERE f.survey_id = ? AND f.status = 'submitted'
-            GROUP BY f.feedback_id, f.from_department_id, f.to_department_id, fd_from.department_code, fd_to.department_code
+            LIMIT 1
         `;
-        const [rows] = await pool.query(query, [surveyId]);
-        return rows.map(r => ({
-            ...r,
-            score: parseFloat(parseFloat(r.score).toFixed(2))
-        }));
+
+        const [rows] =
+            await pool.query(
+                query,
+                [
+                    targetDepartmentId,
+                    quarter
+                ]
+            );
+
+        return rows[0] || null;
     }
+
+
+    // =====================================================
+    // GET EVALUATION OVERVIEW
+    //
+    // Mapping:
+    //
+    // from_department_id
+    //        =
+    // Evaluating Department
+    //
+    // to_department_id
+    //        =
+    // Evaluation Target
+    //
+    // LEFT JOIN feedbacks:
+    //
+    // mapping exists + feedback exists
+    //     => submitted
+    //
+    // mapping exists + feedback missing
+    //     => pending
+    // =====================================================
+
+    async getEvaluationOverview(
+        surveyId,
+        targetDepartmentId
+    ) {
+
+        const query = `
+            SELECT
+
+                dm.mapping_id,
+
+                dm.survey_id,
+
+                dm.from_department_id
+                    AS evaluating_department_id,
+
+                dm.to_department_id
+                    AS evaluation_target_id,
+
+                evaluator.department_code
+                    AS evaluating_department_code,
+
+                evaluator.department_name
+                    AS evaluating_department_name,
+
+                target.department_code
+                    AS evaluation_target_code,
+
+                target.department_name
+                    AS evaluation_target_name,
+
+                f.feedback_id,
+
+                COALESCE(
+                    f.status,
+                    'pending'
+                ) AS feedback_status,
+
+                f.submitted_on
+
+            FROM department_mappings dm
+
+            INNER JOIN departments evaluator
+                ON evaluator.department_id =
+                   dm.from_department_id
+
+            INNER JOIN departments target
+                ON target.department_id =
+                   dm.to_department_id
+
+            LEFT JOIN feedbacks f
+                ON f.survey_id =
+                   dm.survey_id
+
+               AND f.from_department_id =
+                   dm.from_department_id
+
+               AND f.to_department_id =
+                   dm.to_department_id
+
+            WHERE
+                dm.survey_id = ?
+
+                AND dm.to_department_id = ?
+
+                AND dm.status = 'active'
+
+                AND evaluator.status = 'active'
+
+                AND target.status = 'active'
+
+            ORDER BY
+                evaluator.department_name ASC
+        `;
+
+        const [rows] =
+            await pool.query(
+                query,
+                [
+                    surveyId,
+                    targetDepartmentId
+                ]
+            );
+
+        return rows;
+    }
+
 }
 
-module.exports = new DashboardRepository();
+module.exports =
+    new DashboardRepository();

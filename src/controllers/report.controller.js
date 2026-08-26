@@ -1,152 +1,55 @@
 const reportService =
     require("../services/report.service");
 
+const ApiResponse =
+    require("../utils/ApiResponse");
+
+const ApiError =
+    require("../utils/ApiError");
+
 
 // =====================================================
-// QUARTERLY REPORT
-//
-// ADMIN:
-//     All departments
-//
-// HOD:
-//     Departments evaluated by logged-in HOD
-//
-// GET:
-//     /reports/quarterly?year=2026
+// HELPER
 // =====================================================
 
-const getQuarterlyReport =
-    async (
-        req,
-        res,
-        next
-    ) => {
+const getFinancialYear =
+    req => {
 
-        try {
-
-            const {
-                year
-            } = req.query;
+        const financialYear =
+            String(
+                req.query.financial_year || ""
+            )
+                .trim();
 
 
-            // ---------------------------------------------
-            // USER DETAILS FROM AUTH MIDDLEWARE
-            //
-            // IMPORTANT:
-            // Auth middleware stores role as role_name
-            // ---------------------------------------------
+        if (!financialYear) {
 
-            const role =
-                req.user?.role_name;
-
-
-            const departmentId =
-                req.user?.department_id;
-
-
-            console.log("");
-
-            console.log(
-                "========================================"
+            throw new ApiError(
+                400,
+                "financial_year is required."
             );
-
-            console.log(
-                "📊 QUARTERLY REPORT CONTROLLER"
-            );
-
-            console.log(
-                "YEAR:",
-                year
-            );
-
-            console.log(
-                "ROLE:",
-                role
-            );
-
-            console.log(
-                "DEPARTMENT ID:",
-                departmentId
-            );
-
-            console.log(
-                "USER:",
-                req.user
-            );
-
-            console.log(
-                "========================================"
-            );
-
-
-            // ---------------------------------------------
-            // GET REPORT
-            // ---------------------------------------------
-
-            const report =
-                await reportService
-                    .getQuarterlyReport(
-
-                        year,
-
-                        role,
-
-                        departmentId
-
-                    );
-
-
-            // ---------------------------------------------
-            // RESPONSE
-            // ---------------------------------------------
-
-            res
-                .status(200)
-                .json({
-
-                    success:
-                        true,
-
-                    statusCode:
-                        200,
-
-                    message:
-                        "Quarterly report fetched successfully",
-
-                    data:
-                        report
-
-                });
 
         }
 
-        catch (
-            error
-        ) {
 
-            next(
-                error
-            );
-
-        }
+        return financialYear;
 
     };
 
 
 // =====================================================
-// SPECIAL SURVEY REPORT
-//
-// ADMIN:
-//     All departments
-//
-// HOD:
-//     Departments evaluated by logged-in HOD
+// HOD - GENERAL REPORT
 //
 // GET:
-//     /reports/special?survey_id=123
+//
+// /reports/hod/general
+//
+// Query:
+//
+// financial_year=2026-27
 // =====================================================
 
-const getSpecialSurveyReport =
+const getHodGeneralReport =
     async (
         req,
         res,
@@ -155,201 +58,47 @@ const getSpecialSurveyReport =
 
         try {
 
-            const {
-                survey_id
-            } = req.query;
+            const financialYear =
+                getFinancialYear(
+                    req
+                );
 
 
-            // ---------------------------------------------
-            // USER DETAILS FROM AUTH MIDDLEWARE
-            // ---------------------------------------------
-
-            const role =
-                req.user?.role_name;
-
-
-            const departmentId =
-                req.user?.department_id;
-
-
-            console.log("");
-
-            console.log(
-                "========================================"
-            );
-
-            console.log(
-                "📊 SPECIAL SURVEY REPORT CONTROLLER"
-            );
-
-            console.log(
-                "SURVEY ID:",
-                survey_id
-            );
-
-            console.log(
-                "ROLE:",
-                role
-            );
-
-            console.log(
-                "DEPARTMENT ID:",
-                departmentId
-            );
-
-            console.log(
-                "USER:",
-                req.user
-            );
-
-            console.log(
-                "========================================"
-            );
-
-
-            // ---------------------------------------------
-            // GET SPECIAL REPORT
-            // ---------------------------------------------
-
-            const report =
+            const result =
                 await reportService
-                    .getSpecialSurveyReport(
-
-                        survey_id,
-
-                        role,
-
-                        departmentId
-
+                    .getHodGeneral(
+                        req.user,
+                        financialYear
                     );
 
 
-            // ---------------------------------------------
-            // RESPONSE
-            // ---------------------------------------------
-
-            res
+            return res
                 .status(200)
-                .json({
+                .json(
 
-                    success:
-                        true,
+                    new ApiResponse(
 
-                    statusCode:
                         200,
 
-                    message:
-                        "Special survey report fetched successfully",
+                        result,
 
-                    data:
-                        report
+                        "HOD general report fetched successfully"
 
-                });
+                    )
 
-        }
-
-        catch (
-            error
-        ) {
-
-            next(
-                error
-            );
-
-        }
-
-    };
-
-
-// =====================================================
-// EXISTING EXCEL EXPORT
-//
-// Kept unchanged for now.
-//
-// Later we can update this according to:
-//
-// 1. Quarterly Report
-// 2. Special Survey Report
-//
-// =====================================================
-
-const exportExcel =
-    async (
-        req,
-        res,
-        next
-    ) => {
-
-        try {
-
-            const {
-                survey_id
-            } = req.query;
-
-
-            console.log("");
-
-            console.log(
-                "========================================"
-            );
-
-            console.log(
-                "📥 EXCEL REPORT"
-            );
-
-            console.log(
-                "SURVEY ID:",
-                survey_id
-            );
-
-            console.log(
-                "========================================"
-            );
-
-
-            const {
-                filename,
-                buffer
-            } =
-                await reportService
-                    .exportExcelReport(
-                        survey_id
-                    );
-
-
-            res.setHeader(
-
-                "Content-Type",
-
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-
-            );
-
-
-            res.setHeader(
-
-                "Content-Disposition",
-
-                `attachment; filename="${filename}"`
-
-            );
-
-
-            res
-                .status(200)
-                .send(
-                    buffer
                 );
 
         }
 
-        catch (
-            error
-        ) {
+        catch (error) {
 
-            next(
+            console.error(
+                "❌ HOD GENERAL REPORT ERROR:",
                 error
             );
+
+
+            next(error);
 
         }
 
@@ -357,12 +106,18 @@ const exportExcel =
 
 
 // =====================================================
-// EXISTING PDF EXPORT
+// HOD - SPECIAL REPORT
 //
-// Kept unchanged for now.
+// GET:
+//
+// /reports/hod/special
+//
+// Query:
+//
+// financial_year=2026-27
 // =====================================================
 
-const exportPDF =
+const getHodSpecialReport =
     async (
         req,
         res,
@@ -371,84 +126,47 @@ const exportPDF =
 
         try {
 
-            const {
-                survey_id,
-                department_id
-            } = req.query;
+            const financialYear =
+                getFinancialYear(
+                    req
+                );
 
 
-            console.log("");
-
-            console.log(
-                "========================================"
-            );
-
-            console.log(
-                "📥 PDF REPORT"
-            );
-
-            console.log(
-                "SURVEY ID:",
-                survey_id
-            );
-
-            console.log(
-                "DEPARTMENT ID:",
-                department_id
-            );
-
-            console.log(
-                "========================================"
-            );
-
-
-            const {
-                filename,
-                buffer
-            } =
+            const result =
                 await reportService
-                    .exportPDFReport(
-
-                        survey_id,
-
-                        department_id
-
+                    .getHodSpecial(
+                        req.user,
+                        financialYear
                     );
 
 
-            res.setHeader(
-
-                "Content-Type",
-
-                "application/pdf"
-
-            );
-
-
-            res.setHeader(
-
-                "Content-Disposition",
-
-                `attachment; filename="${filename}"`
-
-            );
-
-
-            res
+            return res
                 .status(200)
-                .send(
-                    buffer
+                .json(
+
+                    new ApiResponse(
+
+                        200,
+
+                        result,
+
+                        "HOD special report fetched successfully"
+
+                    )
+
                 );
 
         }
 
-        catch (
-            error
-        ) {
+        catch (error) {
 
-            next(
+            console.error(
+                "❌ HOD SPECIAL REPORT ERROR:",
                 error
             );
+
+
+            next(error);
 
         }
 
@@ -456,17 +174,151 @@ const exportPDF =
 
 
 // =====================================================
-// EXPORT CONTROLLER
+// ADMIN - GENERAL REPORT
+//
+// GET:
+//
+// /reports/admin/general
+//
+// Query:
+//
+// financial_year=2026-27
+// =====================================================
+
+const getAdminGeneralReport =
+    async (
+        req,
+        res,
+        next
+    ) => {
+
+        try {
+
+            const financialYear =
+                getFinancialYear(
+                    req
+                );
+
+
+            const result =
+                await reportService
+                    .getAdminGeneral(
+                        financialYear
+                    );
+
+
+            return res
+                .status(200)
+                .json(
+
+                    new ApiResponse(
+
+                        200,
+
+                        result,
+
+                        "Admin general report fetched successfully"
+
+                    )
+
+                );
+
+        }
+
+        catch (error) {
+
+            console.error(
+                "❌ ADMIN GENERAL REPORT ERROR:",
+                error
+            );
+
+
+            next(error);
+
+        }
+
+    };
+
+
+// =====================================================
+// ADMIN - SPECIAL REPORT
+//
+// GET:
+//
+// /reports/admin/special
+//
+// Query:
+//
+// financial_year=2026-27
+// =====================================================
+
+const getAdminSpecialReport =
+    async (
+        req,
+        res,
+        next
+    ) => {
+
+        try {
+
+            const financialYear =
+                getFinancialYear(
+                    req
+                );
+
+
+            const result =
+                await reportService
+                    .getAdminSpecial(
+                        financialYear
+                    );
+
+
+            return res
+                .status(200)
+                .json(
+
+                    new ApiResponse(
+
+                        200,
+
+                        result,
+
+                        "Admin special report fetched successfully"
+
+                    )
+
+                );
+
+        }
+
+        catch (error) {
+
+            console.error(
+                "❌ ADMIN SPECIAL REPORT ERROR:",
+                error
+            );
+
+
+            next(error);
+
+        }
+
+    };
+
+
+// =====================================================
+// EXPORT
 // =====================================================
 
 module.exports = {
 
-    getQuarterlyReport,
+    getHodGeneralReport,
 
-    getSpecialSurveyReport,
+    getHodSpecialReport,
 
-    exportExcel,
+    getAdminGeneralReport,
 
-    exportPDF
+    getAdminSpecialReport
 
 };

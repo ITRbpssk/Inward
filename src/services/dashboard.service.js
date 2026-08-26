@@ -1,122 +1,362 @@
-const dashboardRepository = require("../repositories/dashboard.repository");
-const surveyRepository = require("../repositories/survey.repository");
-const ApiError = require("../utils/ApiError");
+const dashboardRepository =
+    require("../repositories/dashboard.repository");
+
+const feedbackService =
+    require("./feedback.service");
+
+const ApiError =
+    require("../utils/ApiError");
+
 
 class DashboardService {
-    /**
-     * Helper to resolve surveyId. If empty, falls back to active survey, then to the latest survey.
-     */
-    async resolveSurveyId(surveyId) {
-        if (surveyId) {
-            return parseInt(surveyId);
-        }
-
-        const activeSurvey = await surveyRepository.findActiveSurvey();
-        if (activeSurvey) {
-            return activeSurvey.survey_id;
-        }
-
-        const allSurveys = await surveyRepository.findAll();
-        if (allSurveys.length > 0) {
-            return allSurveys[0].survey_id;
-        }
-
-        return null;
-    }
-
-    async getSummary(surveyId) {
-        const resolvedId = await this.resolveSurveyId(surveyId);
-        if (!resolvedId) {
-            return {
-                total_departments: 0,
-                expected_feedbacks: 0,
-                total_feedbacks: 0,
-                submitted_feedbacks: 0,
-                draft_feedbacks: 0,
-                overall_average_score: 0,
-                survey_info: null
-            };
-        }
-
-        const surveyInfo = await surveyRepository.findById(resolvedId);
-        const metrics = await dashboardRepository.getSummaryMetrics(resolvedId);
-
-        return {
-            ...metrics,
-            survey_info: surveyInfo
-        };
-    }
-
-    async getDepartmentAnalytics(surveyId) {
-        const resolvedId = await this.resolveSurveyId(surveyId);
-        if (!resolvedId) {
-            return [];
-        }
-
-        return await dashboardRepository.getDepartmentWiseScores(resolvedId);
-    }
-
 
     // =====================================================
-    // DEPARTMENT EVALUATION OVERVIEW
+    // GET TARGET DEPARTMENTS
     // =====================================================
 
-    async getDepartmentEvaluationOverview(surveyId) {
-
-        const resolvedId =
-            await this.resolveSurveyId(surveyId);
-
-
-        if (!resolvedId) {
-            return [];
-        }
-
+    async getTargetDepartments() {
 
         return await dashboardRepository
-            .getDepartmentEvaluationOverview(resolvedId);
+            .findTargetDepartments();
 
     }
 
-    async getDepartmentDetailedAnalytics(surveyId, departmentId) {
-        const resolvedId = await this.resolveSurveyId(surveyId);
-        if (!resolvedId) {
-            throw new ApiError(400, "No survey data exists");
+
+    // =====================================================
+    // GET EVALUATION OVERVIEW
+    //
+    // INPUT:
+    // targetDepartmentId
+    // quarter
+    //
+    // OUTPUT:
+    //
+    // Evaluating Department
+    // Evaluation Target
+    // Status
+    // Submitted On
+    // Score
+    // Feedback ID
+    // =====================================================
+
+    async getEvaluationOverview(
+        targetDepartmentId,
+        quarter
+    ) {
+
+        const targetId =
+            Number(
+                targetDepartmentId
+            );
+
+        const normalizedQuarter =
+            String(
+                quarter || ""
+            )
+                .trim()
+                .toUpperCase();
+
+
+        // =================================================
+        // VALIDATION
+        // =================================================
+
+        if (
+            !Number.isInteger(targetId) ||
+            targetId <= 0
+        ) {
+
+            throw new ApiError(
+                400,
+                "Valid targetDepartmentId is required."
+            );
+
         }
 
-        if (!departmentId) {
-            throw new ApiError(400, "departmentId is required");
+
+        const validQuarters = [
+            "Q1",
+            "Q2",
+            "Q3",
+            "Q4"
+        ];
+
+
+        if (
+            !validQuarters.includes(
+                normalizedQuarter
+            )
+        ) {
+
+            throw new ApiError(
+                400,
+                "Valid quarter is required. Allowed values: Q1, Q2, Q3, Q4."
+            );
+
         }
 
-        // Get parameter-wise ratings
-        const parameterScores = await dashboardRepository.getDepartmentParameterScores(resolvedId, departmentId);
 
-        return {
-            survey_id: resolvedId,
-            department_id: parseInt(departmentId),
-            parameter_scores: parameterScores
-        };
-    }
+        // =================================================
+        // FIND SURVEY
+        // =================================================
 
-    async getMatrix(surveyId) {
-        const resolvedId = await this.resolveSurveyId(surveyId);
-        if (!resolvedId) {
+        const survey =
+            await dashboardRepository
+                .findSurveyByTargetDepartmentAndQuarter(
+                    targetId,
+                    normalizedQuarter
+                );
+
+
+        if (!survey) {
+
             return {
-                matrix: [],
-                departments: []
+
+                survey: null,
+
+                evaluations: []
+
             };
+
         }
 
-        const rawMatrix = await dashboardRepository.getFeedbackMatrix(resolvedId);
 
-        // Find all departments involved
-        const depts = await dashboardRepository.getDepartmentWiseScores(resolvedId);
-        const deptCodes = depts.map(d => d.department_code);
+        // =================================================
+        // GET MAPPINGS + FEEDBACK
+        // =================================================
+
+        const rows =
+            await dashboardRepository
+                .getEvaluationOverview(
+                    survey.survey_id,
+                    targetId
+                );
+
+
+        // =================================================
+        // ADD SCORE
+        //
+        // IMPORTANT:
+        //
+        // Score comes from FeedbackService.
+        //
+        // No duplicate calculation here.
+        // =================================================
+
+        const evaluations =
+            await Promise.all(
+
+                rows.map(
+                    async row => {
+
+                        let score = null;
+
+
+                        // ---------------------------------
+                        // ONLY SUBMITTED FEEDBACK GETS SCORE
+                        // ---------------------------------
+
+                        if (
+                            row.feedback_id &&
+                            row.feedback_status ===
+                                "submitted"
+                        ) {
+
+                            const feedback =
+                                await feedbackService
+                                    .getFeedbackById(
+
+                                        row.feedback_id,
+
+                                        null,
+
+                                        "ADMIN"
+
+                                    );
+
+
+                            score =
+                                Number(
+                                    feedback.usi_percentage
+                                );
+
+                        }
+
+
+                        return {
+
+                            mapping_id:
+                                row.mapping_id,
+
+                            survey_id:
+                                row.survey_id,
+
+                            evaluating_department_id:
+                                row.evaluating_department_id,
+
+                            evaluating_department_code:
+                                row.evaluating_department_code,
+
+                            evaluating_department_name:
+                                row.evaluating_department_name,
+
+                            evaluation_target_id:
+                                row.evaluation_target_id,
+
+                            evaluation_target_code:
+                                row.evaluation_target_code,
+
+                            evaluation_target_name:
+                                row.evaluation_target_name,
+
+                            feedback_id:
+                                row.feedback_id,
+
+                            status:
+                                row.feedback_status,
+
+                            submitted_on:
+                                row.submitted_on,
+
+                            score:
+                                score
+
+                        };
+
+                    }
+                )
+
+            );
+
 
         return {
-            matrix: rawMatrix,
-            departments: deptCodes
+
+            survey: {
+
+                survey_id:
+                    survey.survey_id,
+
+                survey_name:
+                    survey.survey_name,
+
+                survey_type:
+                    survey.survey_type,
+
+                financial_year:
+                    survey.financial_year,
+
+                quarter:
+                    survey.quarter,
+
+                start_date:
+                    survey.start_date,
+
+                end_date:
+                    survey.end_date,
+
+                status:
+                    survey.status
+
+            },
+
+            evaluations
+
         };
+
     }
+
+
+    // =====================================================
+    // VIEW RATING
+    //
+    // Uses the SAME calculation as Feedback screen.
+    // =====================================================
+
+    async getRatingDetails(
+        feedbackId
+    ) {
+
+        const id =
+            Number(
+                feedbackId
+            );
+
+
+        if (
+            !Number.isInteger(id) ||
+            id <= 0
+        ) {
+
+            throw new ApiError(
+                400,
+                "Valid feedbackId is required."
+            );
+
+        }
+
+
+        const feedback =
+            await feedbackService
+                .getFeedbackById(
+                    id,
+                    null,
+                    "ADMIN"
+                );
+
+
+        return {
+
+            feedback_id:
+                feedback.feedback_id,
+
+            survey_id:
+                feedback.survey_id,
+
+            survey_name:
+                feedback.survey_name,
+
+            survey_type:
+                feedback.survey_type,
+
+            from_department_name:
+                feedback.from_department_name,
+
+            from_department_code:
+                feedback.from_department_code,
+
+            to_department_name:
+                feedback.to_department_name,
+
+            to_department_code:
+                feedback.to_department_code,
+
+            status:
+                feedback.status,
+
+            submitted_on:
+                feedback.submitted_on,
+
+            overall_comment:
+                feedback.overall_comment,
+
+            ratings:
+                feedback.ratings,
+
+            total_score:
+                feedback.total_score,
+
+            maximum_score:
+                feedback.maximum_score,
+
+            usi_percentage:
+                feedback.usi_percentage
+
+        };
+
+    }
+
 }
 
-module.exports = new DashboardService();
+
+module.exports =
+    new DashboardService();

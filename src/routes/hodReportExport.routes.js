@@ -4,21 +4,29 @@ const express =
 const router =
     express.Router();
 
-const reportController =
-    require("../controllers/report.controller");
+
+const hodReportExportController =
+    require("../controllers/hodReportExport.controller");
+
 
 const authMiddleware =
     require("../middlewares/auth.middleware");
 
+
 const roleMiddleware =
     require("../middlewares/role.middleware");
+
 
 const ROLES =
     require("../constants/roles");
 
 
+// =====================================================
+// HOD REPORT EXPORT ROUTES
+// =====================================================
+
 console.log(
-    "✅ REPORT ROUTES LOADED"
+    "✅ HOD REPORT EXPORT ROUTES LOADED"
 );
 
 
@@ -32,68 +40,77 @@ router.use(
 
 
 // =====================================================
-// HOD - GENERAL REPORT
+// HOD - GENERAL EXPORT
+//
+// GET:
+//
+// /hod-reports/general/export
+//
+// Query:
+//
+// financial_year=2026-27
+// period=Q1
+// format=excel
+//
+// OR:
+//
+// period=Q2
+// period=Q3
+// period=Q4
+// period=YEARLY
+// format=pdf
 // =====================================================
 
 router.get(
-    "/hod/general",
+
+    "/general/export",
 
     roleMiddleware([
         ROLES.HOD
     ]),
 
-    reportController
-        .getHodGeneralReport
+    hodReportExportController
+        .exportGeneral
+
 );
 
 
 // =====================================================
-// HOD - SPECIAL REPORT
+// HOD - SPECIAL EXPORT
+//
+// GET:
+//
+// /hod-reports/special/export
+//
+// Query:
+//
+// financial_year=2026-27
+// period=ALL
+// format=excel
+//
+// OR:
+//
+// period=Special 1
+// period=Special 2
 // =====================================================
 
 router.get(
-    "/hod/special",
+
+    "/special/export",
 
     roleMiddleware([
         ROLES.HOD
     ]),
 
-    reportController
-        .getHodSpecialReport
+    hodReportExportController
+        .exportSpecial
+
 );
 
 
 // =====================================================
-// ADMIN - GENERAL REPORT
+// EXPORT
 // =====================================================
-
-router.get(
-    "/admin/general",
-
-    roleMiddleware([
-        ROLES.ADMIN
-    ]),
-
-    reportController
-        .getAdminGeneralReport
-);
-
-
-// =====================================================
-// ADMIN - SPECIAL REPORT
-// =====================================================
-
-router.get(
-    "/admin/special",
-
-    roleMiddleware([
-        ROLES.ADMIN
-    ]),
-
-    reportController
-        .getAdminSpecialReport
-);
-
 
 module.exports =
     router;

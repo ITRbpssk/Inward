@@ -13,15 +13,6 @@ class SurveyService {
 
     // =====================================================
     // GET ALL SURVEYS
-    //
-    // ADMIN:
-    //     ALL surveys
-    //
-    // HOD:
-    //     Surveys created by logged-in HOD
-    //
-    // IMPORTANT:
-    // ADMIN ला created_by वर कोणताही filter नाही.
     // =====================================================
 
     async getAllSurveys(
@@ -37,102 +28,29 @@ class SurveyService {
                 .toUpperCase();
 
 
-        console.log("");
-        console.log(
-            "========================================"
-        );
-        console.log(
-            "📋 GET ALL SURVEYS"
-        );
-        console.log(
-            "USER ID:",
-            userId
-        );
-        console.log(
-            "ROLE:",
-            normalizedRole
-        );
-        console.log(
-            "========================================"
-        );
-
-
-        // =================================================
-        // ADMIN
-        //
-        // IMPORTANT:
-        // Admin ला system मधील EVERY survey पाहिजे.
-        //
-        // Do NOT use:
-        // findByCreatedBy(userId)
-        //
-        // Use:
-        // findAll()
-        // =================================================
-
         if (
             normalizedRole === "ADMIN"
         ) {
 
-            const surveys =
-                await surveyRepository
-                    .findAll();
-
-
-            console.log(
-                "ADMIN SURVEYS COUNT:",
-                surveys.length
-            );
-
-
-            console.log(
-                "ADMIN SURVEY IDS:",
-                surveys.map(
-                    survey =>
-                        survey.survey_id
-                )
-            );
-
-
-            return surveys;
+            return await surveyRepository
+                .findAll();
 
         }
 
-
-        // =================================================
-        // HOD
-        //
-        // Existing behavior unchanged.
-        // =================================================
 
         if (
             normalizedRole === "HOD"
         ) {
 
-            const surveys =
-                await surveyRepository
-                    .findByCreatedBy(
-                        userId
-                    );
-
-
-            console.log(
-                "HOD SURVEYS COUNT:",
-                surveys.length
-            );
-
-
-            return surveys;
+            return await surveyRepository
+                .findByCreatedBy(
+                    userId
+                );
 
         }
 
 
-        // =================================================
-        // OTHER ROLES
-        // =================================================
-
         return [];
-
     }
 
 
@@ -164,7 +82,6 @@ class SurveyService {
 
 
         return survey;
-
     }
 
 
@@ -192,7 +109,6 @@ class SurveyService {
 
 
         return survey;
-
     }
 
 
@@ -252,6 +168,10 @@ class SurveyService {
             survey_name,
 
             survey_type,
+
+            financial_year,
+
+            quarter,
 
             start_date,
 
@@ -334,14 +254,59 @@ class SurveyService {
 
         if (
             !survey_name ||
+            !financial_year ||
             !start_date ||
             !end_date
         ) {
 
             throw new ApiError(
                 400,
-                "survey_name, start_date, and end_date are required"
+                "survey_name, financial_year, start_date, and end_date are required"
             );
+
+        }
+
+
+        // =================================================
+        // QUARTER
+        //
+        // GENERAL = REQUIRED
+        // SPECIAL = NULL
+        // =================================================
+
+        if (
+            survey_type === "general"
+        ) {
+
+            quarter =
+                String(
+                    quarter || ""
+                )
+                    .trim()
+                    .toUpperCase();
+
+
+            if (
+                ![
+                    "Q1",
+                    "Q2",
+                    "Q3",
+                    "Q4"
+                ].includes(
+                    quarter
+                )
+            ) {
+
+                throw new ApiError(
+                    400,
+                    "Valid quarter Q1, Q2, Q3 or Q4 is required for general survey"
+                );
+
+            }
+
+        } else {
+
+            quarter = null;
 
         }
 
@@ -516,7 +481,7 @@ class SurveyService {
 
 
         // =================================================
-        // SPECIAL PARAMETERS VALIDATION
+        // SPECIAL PARAMETERS
         // =================================================
 
         let normalizedSpecialParameters =
@@ -628,7 +593,7 @@ class SurveyService {
 
 
         // =================================================
-        // CREATE SURVEY
+        // CREATE
         // =================================================
 
         const surveyId =
@@ -638,6 +603,10 @@ class SurveyService {
                     survey_name,
 
                     survey_type,
+
+                    financial_year,
+
+                    quarter,
 
                     start_date,
 
@@ -665,14 +634,10 @@ class SurveyService {
         // RETURN COMPLETE SURVEY
         // =================================================
 
-        const createdSurvey =
-            await surveyRepository
-                .findById(
-                    surveyId
-                );
-
-
-        return createdSurvey;
+        return await surveyRepository
+            .findById(
+                surveyId
+            );
 
     }
 
@@ -691,6 +656,10 @@ class SurveyService {
             survey_name,
 
             survey_type,
+
+            financial_year,
+
+            quarter,
 
             start_date,
 
@@ -727,16 +696,63 @@ class SurveyService {
         }
 
 
+        survey_type =
+            String(
+                survey_type ||
+                "general"
+            )
+                .toLowerCase()
+                .trim();
+
+
         if (
             !survey_name ||
+            !financial_year ||
             !start_date ||
             !end_date
         ) {
 
             throw new ApiError(
                 400,
-                "survey_name, start_date, and end_date are required"
+                "survey_name, financial_year, start_date, and end_date are required"
             );
+
+        }
+
+
+        if (
+            survey_type === "general"
+        ) {
+
+            quarter =
+                String(
+                    quarter || ""
+                )
+                    .trim()
+                    .toUpperCase();
+
+
+            if (
+                ![
+                    "Q1",
+                    "Q2",
+                    "Q3",
+                    "Q4"
+                ].includes(
+                    quarter
+                )
+            ) {
+
+                throw new ApiError(
+                    400,
+                    "Valid quarter Q1, Q2, Q3 or Q4 is required for general survey"
+                );
+
+            }
+
+        } else {
+
+            quarter = null;
 
         }
 
@@ -780,10 +796,11 @@ class SurveyService {
 
                     survey_name,
 
-                    survey_type:
-                        survey_type ||
-                        survey.survey_type ||
-                        "general",
+                    survey_type,
+
+                    financial_year,
+
+                    quarter,
 
                     start_date,
 
@@ -841,10 +858,6 @@ class SurveyService {
 
 }
 
-
-// =====================================================
-// EXPORT
-// =====================================================
 
 module.exports =
     new SurveyService();

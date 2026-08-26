@@ -1,88 +1,136 @@
-const dashboardService = require("../services/dashboard.service");
-const ApiResponse = require("../utils/ApiResponse");
-
-const getSummary = async (req, res, next) => {
-    try {
-        const { survey_id } = req.query;
-        const summary = await dashboardService.getSummary(survey_id);
-        res.status(200).json(new ApiResponse(200, summary, "Summary stats fetched successfully"));
-    } catch (error) {
-        next(error);
-    }
-};
-
-const getDepartmentAnalytics = async (req, res, next) => {
-    try {
-        const { survey_id } = req.query;
-        const analytics = await dashboardService.getDepartmentAnalytics(survey_id);
-        res.status(200).json(new ApiResponse(200, analytics, "Department analytics fetched successfully"));
-    } catch (error) {
-        next(error);
-    }
-};
+const dashboardService =
+    require("../services/dashboard.service");
 
 
-const getDepartmentEvaluationOverview = async (req, res, next) => {
+class DashboardController {
 
-    try {
+    // =====================================================
+    // GET TARGET DEPARTMENTS
+    // =====================================================
 
-        const { survey_id } = req.query;
+    async getTargetDepartments(
+        req,
+        res,
+        next
+    ) {
 
-        const overview =
-            await dashboardService
-                .getDepartmentEvaluationOverview(survey_id);
+        try {
 
-        res
-            .status(200)
-            .json(
-                new ApiResponse(
-                    200,
-                    overview,
-                    "Department evaluation overview fetched successfully"
-                )
-            );
+            const data =
+                await dashboardService
+                    .getTargetDepartments();
 
-    } catch (error) {
 
-        next(error);
+            return res.status(200).json({
+
+                success: true,
+
+                data
+
+            });
+
+        } catch (error) {
+
+            next(error);
+
+        }
 
     }
 
-};
+
+    // =====================================================
+    // GET EVALUATION OVERVIEW
+    //
+    // Query:
+    //
+    // targetDepartmentId
+    // quarter
+    // =====================================================
+
+    async getEvaluationOverview(
+        req,
+        res,
+        next
+    ) {
+
+        try {
+
+            const {
+                targetDepartmentId,
+                quarter
+            } = req.query;
 
 
+            const data =
+                await dashboardService
+                    .getEvaluationOverview(
+
+                        targetDepartmentId,
+
+                        quarter
+
+                    );
 
 
+            return res.status(200).json({
 
+                success: true,
 
+                data
 
+            });
 
+        } catch (error) {
 
+            next(error);
 
-const getDepartmentDetailedAnalytics = async (req, res, next) => {
-    try {
-        const { survey_id, department_id } = req.query;
-        const details = await dashboardService.getDepartmentDetailedAnalytics(survey_id, department_id);
-        res.status(200).json(new ApiResponse(200, details, "Detailed department analytics fetched successfully"));
-    } catch (error) {
-        next(error);
+        }
+
     }
-};
 
-const getMatrix = async (req, res, next) => {
-    try {
-        const { survey_id } = req.query;
-        const matrix = await dashboardService.getMatrix(survey_id);
-        res.status(200).json(new ApiResponse(200, matrix, "Feedback matrix fetched successfully"));
-    } catch (error) {
-        next(error);
+
+    // =====================================================
+    // VIEW RATING
+    // =====================================================
+
+    async getRatingDetails(
+        req,
+        res,
+        next
+    ) {
+
+        try {
+
+            const {
+                feedbackId
+            } = req.params;
+
+
+            const data =
+                await dashboardService
+                    .getRatingDetails(
+                        feedbackId
+                    );
+
+
+            return res.status(200).json({
+
+                success: true,
+
+                data
+
+            });
+
+        } catch (error) {
+
+            next(error);
+
+        }
+
     }
-};
 
-module.exports = {
-    getSummary,
-    getDepartmentAnalytics,
-    getDepartmentEvaluationOverview,
-    getDepartmentDetailedAnalytics,
-    getMatrix
-};
+}
+
+
+module.exports =
+    new DashboardController();

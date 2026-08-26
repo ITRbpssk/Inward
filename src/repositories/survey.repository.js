@@ -57,6 +57,8 @@ class SurveyRepository {
                 s.survey_id,
                 s.survey_name,
                 s.survey_type,
+                s.financial_year,
+                s.quarter,
                 s.start_date,
                 s.end_date,
                 s.status,
@@ -104,6 +106,8 @@ class SurveyRepository {
                 s.survey_id,
                 s.survey_name,
                 s.survey_type,
+                s.financial_year,
+                s.quarter,
                 s.start_date,
                 s.end_date,
                 s.status,
@@ -237,8 +241,6 @@ class SurveyRepository {
 
     // =====================================================
     // GET ONE ACTIVE SURVEY
-    //
-    // ALSO RETURNS SPECIAL PARAMETERS
     // =====================================================
 
     async findActiveSurvey() {
@@ -246,6 +248,7 @@ class SurveyRepository {
         const query = `
             SELECT *
             FROM surveys
+
             WHERE status = 'active'
 
               AND CURDATE()
@@ -272,10 +275,6 @@ class SurveyRepository {
         const survey =
             rows[0];
 
-
-        // =================================================
-        // LOAD SPECIAL PARAMETERS
-        // =================================================
 
         const specialQuery = `
             SELECT
@@ -324,6 +323,7 @@ class SurveyRepository {
         const query = `
             SELECT *
             FROM surveys
+
             WHERE status = 'active'
 
               AND CURDATE()
@@ -335,10 +335,6 @@ class SurveyRepository {
         const [rows] =
             await pool.query(query);
 
-
-        // =================================================
-        // LOAD SPECIAL PARAMETERS FOR EACH SURVEY
-        // =================================================
 
         for (
             const survey
@@ -398,6 +394,8 @@ class SurveyRepository {
         const {
             survey_name,
             survey_type,
+            financial_year,
+            quarter,
             start_date,
             end_date,
             status,
@@ -410,13 +408,15 @@ class SurveyRepository {
             (
                 survey_name,
                 survey_type,
+                financial_year,
+                quarter,
                 start_date,
                 end_date,
                 status,
                 created_by
             )
 
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
 
@@ -426,6 +426,8 @@ class SurveyRepository {
                 [
                     survey_name,
                     survey_type || "general",
+                    financial_year,
+                    quarter || null,
                     start_date,
                     end_date,
                     status || "draft",
@@ -441,9 +443,12 @@ class SurveyRepository {
     // =====================================================
     // CREATE SURVEY WITH DEPARTMENTS
     //
-    // IMPORTANT:
+    // SINGLE TRANSACTION
     //
-    // This now also creates special_parameters.
+    // 1. Survey
+    // 2. Target department
+    // 3. Evaluating departments
+    // 4. Special parameters
     // =====================================================
 
     async createSurveyWithDepartments(
@@ -453,6 +458,8 @@ class SurveyRepository {
         const {
             survey_name,
             survey_type,
+            financial_year,
+            quarter,
             start_date,
             end_date,
             status,
@@ -469,10 +476,6 @@ class SurveyRepository {
 
         try {
 
-            // =================================================
-            // TRANSACTION START
-            // =================================================
-
             await connection.beginTransaction();
 
 
@@ -485,13 +488,15 @@ class SurveyRepository {
                 (
                     survey_name,
                     survey_type,
+                    financial_year,
+                    quarter,
                     start_date,
                     end_date,
                     status,
                     created_by
                 )
 
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
 
@@ -503,6 +508,11 @@ class SurveyRepository {
 
                         survey_type ||
                             "general",
+
+                        financial_year,
+
+                        quarter ||
+                            null,
 
                         start_date,
 
@@ -522,7 +532,7 @@ class SurveyRepository {
 
 
             // =================================================
-            // 2. SAVE TARGET DEPARTMENT
+            // 2. TARGET DEPARTMENT
             // =================================================
 
             const targetQuery = `
@@ -546,7 +556,7 @@ class SurveyRepository {
 
 
             // =================================================
-            // 3. SAVE EVALUATING DEPARTMENTS
+            // 3. EVALUATING DEPARTMENTS
             // =================================================
 
             const mappingQuery = `
@@ -579,11 +589,8 @@ class SurveyRepository {
                     mappingQuery,
                     [
                         surveyId,
-
                         evaluatorId,
-
                         target_department_id,
-
                         "active"
                     ]
                 );
@@ -592,9 +599,7 @@ class SurveyRepository {
 
 
             // =================================================
-            // 4. SAVE SPECIAL PARAMETERS
-            //
-            // ONLY FOR SPECIAL SURVEY
+            // 4. SPECIAL PARAMETERS
             // =================================================
 
             const normalizedSurveyType =
@@ -709,10 +714,6 @@ class SurveyRepository {
             }
 
 
-            // =================================================
-            // COMMIT
-            // =================================================
-
             await connection.commit();
 
 
@@ -721,14 +722,9 @@ class SurveyRepository {
 
         } catch (error) {
 
-            // =================================================
-            // ROLLBACK
-            // =================================================
-
             await connection.rollback();
 
             throw error;
-
 
         } finally {
 
@@ -751,6 +747,8 @@ class SurveyRepository {
         const {
             survey_name,
             survey_type,
+            financial_year,
+            quarter,
             start_date,
             end_date,
             status
@@ -763,6 +761,8 @@ class SurveyRepository {
             SET
                 survey_name = ?,
                 survey_type = ?,
+                financial_year = ?,
+                quarter = ?,
                 start_date = ?,
                 end_date = ?,
                 status = ?
@@ -779,6 +779,11 @@ class SurveyRepository {
 
                     survey_type ||
                         "general",
+
+                    financial_year,
+
+                    quarter ||
+                        null,
 
                     start_date,
 
@@ -815,7 +820,7 @@ class SurveyRepository {
 
 
             // =================================================
-            // DELETE SPECIAL PARAMETERS FIRST
+            // DELETE SPECIAL PARAMETERS
             // =================================================
 
             await connection.query(
@@ -895,108 +900,54 @@ class SurveyRepository {
     // =====================================================
     // GET MY SURVEYS
     // =====================================================
-// =====================================================
-// GET MY SURVEYS
-//
-// Current department can see surveys when:
-//
-// 1. Current department is EVALUATOR
-//    dm.from_department_id = departmentId
-//
-// OR
-//
-// 2. Current department is TARGET department
-//    dm.to_department_id = departmentId
-//
-// OR
-//
-// 3. Current user created the survey
-//    s.created_by = userId
-//
-// IMPORTANT:
-// Multiple surveys must be returned.
-// Do NOT use LIMIT 1.
-// =====================================================
-// =====================================================
-// GET MY SURVEYS
-//
-// A HOD can see a survey when:
-//
-// 1. The logged-in user CREATED the survey
-//    OR
-//
-// 2. The logged-in HOD's department is an EVALUATOR
-//    in that survey.
-//
-// IMPORTANT:
-//
-// DO NOT use:
-//     dm.to_department_id = departmentId
-//
-// Because target/creator department should NOT
-// automatically get every survey.
-//
-// Example:
-//
-// IT creates Survey A
-//
-// IT       -> creator
-// Finance  -> evaluator
-// Civil    -> evaluator
-// Vehicle  -> evaluator
-//
-// IT      sees Survey A
-// Finance sees Survey A
-// Civil   sees Survey A
-// Vehicle sees Survey A
-//
-// Account does NOT see Survey A unless Account
-// is also an evaluator.
-//
-// =====================================================
 
-async findMySurveys(
-    departmentId,
-    userId
-) {
+    async findMySurveys(
+        departmentId,
+        userId
+    ) {
 
-    const query = `
-        SELECT DISTINCT
+        const query = `
+            SELECT DISTINCT
 
-            s.survey_id,
-            s.survey_name,
-            s.survey_type,
-            s.start_date,
-            s.end_date,
-            s.status,
-            s.created_by
+                s.survey_id,
+                s.survey_name,
+                s.survey_type,
+                s.financial_year,
+                s.quarter,
+                s.start_date,
+                s.end_date,
+                s.status,
+                s.created_by
 
-        FROM surveys s
+            FROM surveys s
 
-        LEFT JOIN department_mappings dm
-            ON dm.survey_id = s.survey_id
-            AND dm.status = 'active'
+            LEFT JOIN department_mappings dm
+                ON dm.survey_id = s.survey_id
+                AND dm.status = 'active'
 
-        WHERE
-            s.created_by = ?
-            OR
-            dm.from_department_id = ?
+            WHERE
+                s.created_by = ?
+                OR
+                dm.from_department_id = ?
 
-        ORDER BY
-            s.survey_id DESC
-    `;
+            ORDER BY
+                s.survey_id DESC
+        `;
 
-    const [rows] =
-        await pool.query(
-            query,
-            [
-                userId,
-                departmentId
-            ]
-        );
 
-    return rows;
-}
+        const [rows] =
+            await pool.query(
+                query,
+                [
+                    userId,
+                    departmentId
+                ]
+            );
+
+
+        return rows;
+    }
+
 }
 
 
