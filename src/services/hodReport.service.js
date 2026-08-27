@@ -8,6 +8,36 @@ const ApiError =
     require("../utils/ApiError");
 
 
+// =====================================================
+// HOD REPORT SERVICE
+//
+// IMPORTANT LOGIC
+//
+// Logged-in HOD department = EVALUATOR
+//
+// Example:
+//
+// Computer HOD
+// department_id = 4
+//
+// Survey mappings:
+//
+// Computer -> General
+// Computer -> Purchase
+// Computer -> HR
+//
+// Therefore HOD report:
+//
+// General   | Q1 score
+// Purchase  | Q1 score
+// HR        | Q1 score
+//
+// NOT:
+//
+// Computer | Q1 score
+//
+// =====================================================
+
 class HodReportService {
 
 
@@ -89,7 +119,6 @@ class HodReportService {
             throw new ApiError(
                 400,
                 "Invalid period. Use Q1, Q2, Q3, Q4 or YEARLY."
-
             );
 
         }
@@ -175,9 +204,7 @@ class HodReportService {
 
                 .filter(
                     value =>
-                        Number.isFinite(
-                            value
-                        )
+                        Number.isFinite(value)
                 );
 
 
@@ -213,7 +240,12 @@ class HodReportService {
     // =====================================================
     // GET FEEDBACK SCORE
     //
-    // FeedbackService is the single source for USI.
+    // IMPORTANT:
+    //
+    // feedbackService is the single source
+    // for USI calculation.
+    //
+    // Do NOT calculate rating manually here.
     // =====================================================
 
     async getFeedbackScore(
@@ -229,47 +261,69 @@ class HodReportService {
         }
 
 
-        const feedback =
-            await feedbackService
-                .getFeedbackById(
-                    Number(feedbackId),
-                    null,
-                    "ADMIN"
-                );
+        try {
+
+            const feedback =
+                await feedbackService
+                    .getFeedbackById(
+                        Number(
+                            feedbackId
+                        )
+                    );
 
 
-        if (
-            !feedback
-        ) {
+            if (
+                !feedback
+            ) {
+
+                return null;
+
+            }
+
+
+            const status =
+                String(
+                    feedback.status || ""
+                )
+                    .trim()
+                    .toLowerCase();
+
+
+            if (
+                status !== "submitted"
+            ) {
+
+                return null;
+
+            }
+
+
+            return this.roundScore(
+                feedback.usi_percentage
+            );
+
+        }
+
+        catch (error) {
+
+            console.error(
+                "❌ HOD REPORT FEEDBACK SCORE ERROR:",
+                feedbackId,
+                error.message
+            );
+
 
             return null;
 
         }
-
-
-        if (
-            String(
-                feedback.status || ""
-            )
-                .trim()
-                .toLowerCase() !==
-            "submitted"
-        ) {
-
-            return null;
-
-        }
-
-
-        return this.roundScore(
-            feedback.usi_percentage
-        );
 
     }
 
 
     // =====================================================
     // BUILD SCORE MAP
+    //
+    // feedback_id -> USI percentage
     // =====================================================
 
     async buildScoreMap(
@@ -281,7 +335,8 @@ class HodReportService {
 
 
         if (
-            !Array.isArray(rows)
+            !Array.isArray(rows) ||
+            rows.length === 0
         ) {
 
             return scoreMap;
@@ -319,10 +374,9 @@ class HodReportService {
                 async feedbackId => {
 
                     const score =
-                        await this
-                            .getFeedbackScore(
-                                feedbackId
-                            );
+                        await this.getFeedbackScore(
+                            feedbackId
+                        );
 
 
                     scoreMap.set(
@@ -342,72 +396,130 @@ class HodReportService {
 
 
     // =====================================================
-    // CREATE EMPTY DEPARTMENT
-    // =====================================================
-
-    createDepartment(
-        department
-    ) {
-
-        return {
-
-            department_id:
-                department.department_id,
-
-            department_code:
-                department.department_code,
-
-            department_name:
-                department.department_name,
-
-            Q1: null,
-
-            Q2: null,
-
-            Q3: null,
-
-            Q4: null,
-
-            yearly_average: null
-
-        };
-
-    }
-
-
-    // =====================================================
     // BUILD DEPARTMENT MAP
+    //
+    // IMPORTANT:
+    //
+    // Departments here are TARGET departments.
+    //
+    // Only departments which THIS HOD evaluates
+    // are included.
     // =====================================================
 
     buildDepartmentMap(
-        departments
+        rows,
+        hodDepartmentId
     ) {
 
-        const map =
+        const departmentMap =
             new Map();
 
 
-        for (
-            const department
-            of departments
+        if (
+            !Array.isArray(rows)
         ) {
 
-            map.set(
+            return departmentMap;
 
+        }
+
+
+        for (
+            const row
+            of rows
+        ) {
+
+            const evaluatorId =
                 Number(
-                    department.department_id
-                ),
+                    row.evaluator_department_id
+                );
 
-                this.createDepartment(
-                    department
+
+            const targetId =
+                Number(
+                    row.target_department_id
+                );
+
+
+            // -------------------------------------------------
+            // VERY IMPORTANT
+            //
+            // Only logged-in HOD as evaluator.
+            // -------------------------------------------------
+
+            if (
+                evaluatorId !==
+                Number(
+                    hodDepartmentId
                 )
+            ) {
+
+                continue;
+
+            }
+
+
+            if (
+                !Number.isInteger(
+                    targetId
+                ) ||
+                targetId <= 0
+            ) {
+
+                continue;
+
+            }
+
+
+            if (
+                departmentMap.has(
+                    targetId
+                )
+            ) {
+
+                continue;
+
+            }
+
+
+            departmentMap.set(
+
+                targetId,
+
+                {
+
+                    department_id:
+                        targetId,
+
+                    department_code:
+                        row.target_department_code,
+
+                    department_name:
+                        row.target_department_name,
+
+                    Q1:
+                        null,
+
+                    Q2:
+                        null,
+
+                    Q3:
+                        null,
+
+                    Q4:
+                        null,
+
+                    yearly_average:
+                        null
+
+                }
 
             );
 
         }
 
 
-        return map;
+        return departmentMap;
 
     }
 
@@ -415,22 +527,17 @@ class HodReportService {
     // =====================================================
     // BUILD QUARTER SCORES
     //
-    // IT HOD example:
+    // One target department may have multiple
+    // survey/evaluation records.
     //
-    // Agriculture -> IT = 80
-    // Accounts    -> IT = 90
-    // HR          -> IT = 70
-    // Computer    -> IT = 80
-    //
-    // IT Q1 =
-    // (80 + 90 + 70 + 80) / 4
-    // = 80
+    // Those submitted USI scores are averaged.
     // =====================================================
 
     buildQuarterScores(
         rows,
         scoreMap,
-        departmentMap
+        departmentMap,
+        hodDepartmentId
     ) {
 
         const quarterScores =
@@ -451,10 +558,43 @@ class HodReportService {
             of rows
         ) {
 
-            const departmentId =
+            const evaluatorId =
+                Number(
+                    row.evaluator_department_id
+                );
+
+
+            // -------------------------------------------------
+            // ONLY LOGGED-IN HOD
+            // -------------------------------------------------
+
+            if (
+                evaluatorId !==
+                Number(
+                    hodDepartmentId
+                )
+            ) {
+
+                continue;
+
+            }
+
+
+            const targetDepartmentId =
                 Number(
                     row.target_department_id
                 );
+
+
+            if (
+                !departmentMap.has(
+                    targetDepartmentId
+                )
+            ) {
+
+                continue;
+
+            }
 
 
             const quarter =
@@ -466,21 +606,9 @@ class HodReportService {
 
 
             if (
-                !departmentMap.has(
-                    departmentId
+                !this.GENERAL_QUARTERS.includes(
+                    quarter
                 )
-            ) {
-
-                continue;
-
-            }
-
-
-            if (
-                !this.GENERAL_QUARTERS
-                    .includes(
-                        quarter
-                    )
             ) {
 
                 continue;
@@ -495,7 +623,15 @@ class HodReportService {
 
 
             if (
-                !feedbackId ||
+                !feedbackId
+            ) {
+
+                continue;
+
+            }
+
+
+            if (
                 !scoreMap.has(
                     feedbackId
                 )
@@ -513,7 +649,8 @@ class HodReportService {
 
 
             if (
-                score === null
+                score === null ||
+                score === undefined
             ) {
 
                 continue;
@@ -522,7 +659,7 @@ class HodReportService {
 
 
             const key =
-                `${departmentId}_${quarter}`;
+                `${targetDepartmentId}_${quarter}`;
 
 
             if (
@@ -594,7 +731,9 @@ class HodReportService {
             }
 
 
-            department[quarter] =
+            department[
+                quarter
+            ] =
                 this.calculateAverage(
                     scores
                 );
@@ -607,20 +746,36 @@ class HodReportService {
     // =====================================================
     // CALCULATE YEARLY AVERAGE
     //
-    // Q1 = 80
-    // Q2 = 90
-    // Q3 = null
-    // Q4 = null
+    // IMPORTANT:
     //
-    // Yearly = 85
+    // Only available quarters are included.
+    //
+    // Example:
+    //
+    // Q1 = 90
+    // Q2 = N/A
+    // Q3 = N/A
+    // Q4 = N/A
+    //
+    // Yearly Average = 90
     // =====================================================
 
-    calculateYearlyAverage(
+    calculateDepartmentYearlyAverage(
         department
     ) {
 
+        if (
+            !department
+        ) {
+
+            return null;
+
+        }
+
+
         department.yearly_average =
             this.calculateAverage(
+
                 [
 
                     department.Q1,
@@ -632,205 +787,56 @@ class HodReportService {
                     department.Q4
 
                 ]
+
             );
+
+
+        return department.yearly_average;
 
     }
 
 
     // =====================================================
-    // HOD - GENERAL REPORT
-    //
-    // IMPORTANT:
-    //
-    // HOD ला फक्त त्याच्या surveys मधील target
-    // departments मिळतील.
-    //
-    // त्यामुळे IT HOD ला दुसऱ्या HOD चा report
-    // मिळणार नाही.
+    // CALCULATE ALL YEARLY AVERAGES
     // =====================================================
 
-    async getGeneralReport(
-        user,
-        financialYear,
-        period = "YEARLY"
+    calculateYearlyAverages(
+        departments
     ) {
 
         if (
-            !user ||
-            !user.user_id
+            !Array.isArray(
+                departments
+            )
         ) {
 
-            throw new ApiError(
-                401,
-                "Authenticated user is required."
-            );
+            return;
 
         }
 
 
-        const year =
-            this.validateFinancialYear(
-                financialYear
-            );
+        departments.forEach(
+            department => {
 
-
-        const selectedPeriod =
-            this.normalizePeriod(
-                period
-            );
-
-
-        // =================================================
-        // GET HOD TARGET DEPARTMENTS
-        // =================================================
-
-        const targetDepartments =
-            await hodReportRepository
-                .getTargetDepartments(
-                    user.user_id,
-                    year,
-                    "general"
+                this.calculateDepartmentYearlyAverage(
+                    department
                 );
 
-
-        if (
-            !targetDepartments.length
-        ) {
-
-            return {
-
-                report_type:
-                    "hod_general",
-
-                financial_year:
-                    year,
-
-                report_period:
-                    selectedPeriod,
-
-                columns: [
-
-                    "Department",
-                    "Q1",
-                    "Q2",
-                    "Q3",
-                    "Q4",
-                    "Yearly Average"
-
-                ],
-
-                departments: []
-
-            };
-
-        }
-
-
-        // =================================================
-        // GET SOURCE DATA
-        // =================================================
-
-        const queryPeriod =
-            selectedPeriod === "YEARLY"
-                ? null
-                : selectedPeriod;
-
-
-        const rows =
-            await hodReportRepository
-                .getGeneralReportSource(
-                    user.user_id,
-                    year,
-                    queryPeriod
-                );
-
-
-        // =================================================
-        // SCORE MAP
-        // =================================================
-
-        const scoreMap =
-            await this.buildScoreMap(
-                rows
-            );
-
-
-        // =================================================
-        // DEPARTMENT MAP
-        // =================================================
-
-        const departmentMap =
-            this.buildDepartmentMap(
-                targetDepartments
-            );
-
-
-        // =================================================
-        // QUARTER SCORES
-        // =================================================
-
-        const quarterScores =
-            this.buildQuarterScores(
-                rows,
-                scoreMap,
-                departmentMap
-            );
-
-
-        this.applyQuarterScores(
-            departmentMap,
-            quarterScores
+            }
         );
 
-
-        // =================================================
-        // RESULT DEPARTMENTS
-        // =================================================
-
-        const departments =
-            [
-                ...departmentMap.values()
-            ];
+    }
 
 
-        // =================================================
-        // YEARLY AVERAGE
-        // =================================================
+    // =====================================================
+    // CALCULATE QUARTERLY AVERAGES
+    // =====================================================
 
-        if (
-            selectedPeriod === "YEARLY"
-        ) {
+    calculateQuarterlyAverages(
+        departments
+    ) {
 
-            departments.forEach(
-                department => {
-
-                    this.calculateYearlyAverage(
-                        department
-                    );
-
-                }
-            );
-
-        }
-
-
-        // =================================================
-        // HOD QUARTERLY AVERAGE
-        //
-        // HOD report मध्ये bottom average हवा आहे.
-        //
-        // Example:
-        //
-        // IT
-        // Q1 = 82
-        //
-        // Average = 82
-        //
-        // जर multiple target departments असतील,
-        // त्यांचा average घेतला जाईल.
-        // =================================================
-
-        const quarterlyAverage = {
+        return {
 
             Q1:
                 this.calculateAverage(
@@ -866,38 +872,322 @@ class HodReportService {
 
         };
 
+    }
+
+
+    // =====================================================
+    // CALCULATE YEARLY REPORT AVERAGE
+    //
+    // Average of department yearly averages.
+    // =====================================================
+
+    calculateYearlyReportAverage(
+        departments
+    ) {
+
+        return this.calculateAverage(
+
+            departments.map(
+                department =>
+                    department.yearly_average
+            )
+
+        );
+
+    }
+
+
+    // =====================================================
+    // GET GENERAL REPORT
+    //
+    // HOD:
+    //
+    // logged-in HOD = evaluator
+    //
+    // target departments = departments evaluated
+    //
+    // Q1:
+    //
+    // Department | Q1 | Average
+    //
+    // YEARLY:
+    //
+    // Department | Q1 | Q2 | Q3 | Q4 | Yearly Average
+    // =====================================================
+
+    async getGeneralReport(
+        user,
+        financialYear,
+        period = "YEARLY"
+    ) {
 
         // =================================================
-        // HOD YEARLY AVERAGE
+        // USER VALIDATION
         // =================================================
 
-        const yearlyAverage =
-            this.calculateAverage(
+        if (
+            !user ||
+            !user.user_id
+        ) {
 
-                departments.map(
-                    department =>
-                        department.yearly_average
-                )
+            throw new ApiError(
+                401,
+                "Authenticated HOD is required."
+            );
 
+        }
+
+
+        // =================================================
+        // HOD DEPARTMENT
+        // =================================================
+
+        const hodDepartmentId =
+            Number(
+                user.department_id
+            );
+
+
+        if (
+            !Number.isInteger(
+                hodDepartmentId
+            ) ||
+            hodDepartmentId <= 0
+        ) {
+
+            throw new ApiError(
+                400,
+                "HOD department_id is missing."
+            );
+
+        }
+
+
+        // =================================================
+        // YEAR
+        // =================================================
+
+        const year =
+            this.validateFinancialYear(
+                financialYear
             );
 
 
         // =================================================
-        // RETURN
+        // PERIOD
         // =================================================
 
-        return {
+        const selectedPeriod =
+            this.normalizePeriod(
+                period
+            );
 
-            report_type:
-                "hod_general",
 
-            financial_year:
-                year,
+        console.log("");
+        console.log(
+            "========================================"
+        );
 
-            report_period:
-                selectedPeriod,
+        console.log(
+            "📊 HOD GENERAL REPORT"
+        );
 
-            columns: [
+        console.log(
+            "HOD USER ID:",
+            user.user_id
+        );
+
+        console.log(
+            "HOD DEPARTMENT ID:",
+            hodDepartmentId
+        );
+
+        console.log(
+            "FINANCIAL YEAR:",
+            year
+        );
+
+        console.log(
+            "PERIOD:",
+            selectedPeriod
+        );
+
+        console.log(
+            "========================================"
+        );
+
+
+        // =================================================
+        // GET SOURCE DATA
+        //
+        // Repository gives:
+        //
+        // target_department_id
+        // evaluator_department_id
+        // feedback_id
+        // quarter
+        // =================================================
+
+        const queryPeriod =
+            selectedPeriod === "YEARLY"
+                ? null
+                : selectedPeriod;
+
+
+        const sourceRows =
+            await hodReportRepository
+                .getGeneralReportSource(
+                    user.user_id,
+                    year,
+                    queryPeriod
+                );
+
+
+        console.log(
+            "HOD REPORT SOURCE ROWS:",
+            sourceRows.length
+        );
+
+
+        // =================================================
+        // ONLY THIS HOD AS EVALUATOR
+        // =================================================
+
+        const rows =
+            sourceRows.filter(
+                row =>
+
+                    Number(
+                        row.evaluator_department_id
+                    ) ===
+                    hodDepartmentId
+
+            );
+
+
+        console.log(
+            "HOD EVALUATOR ROWS:",
+            rows.length
+        );
+
+
+        // =================================================
+        // BUILD DEPARTMENTS
+        // =================================================
+
+        const departmentMap =
+            this.buildDepartmentMap(
+                rows,
+                hodDepartmentId
+            );
+
+
+        // =================================================
+        // BUILD SCORE MAP
+        // =================================================
+
+        const scoreMap =
+            await this.buildScoreMap(
+                rows
+            );
+
+
+        // =================================================
+        // BUILD QUARTER SCORES
+        // =================================================
+
+        const quarterScores =
+            this.buildQuarterScores(
+                rows,
+                scoreMap,
+                departmentMap,
+                hodDepartmentId
+            );
+
+
+        // =================================================
+        // APPLY SCORES
+        // =================================================
+
+        this.applyQuarterScores(
+            departmentMap,
+            quarterScores
+        );
+
+
+        // =================================================
+        // DEPARTMENTS
+        // =================================================
+
+        const departments =
+            [
+                ...departmentMap.values()
+            ];
+
+
+        // =================================================
+        // SORT DEPARTMENTS
+        // =================================================
+
+        departments.sort(
+            (
+                a,
+                b
+            ) =>
+
+                String(
+                    a.department_name || ""
+                )
+                    .localeCompare(
+                        String(
+                            b.department_name || ""
+                        )
+                    )
+
+        );
+
+
+        // =================================================
+        // YEARLY AVERAGE
+        // =================================================
+
+        this.calculateYearlyAverages(
+            departments
+        );
+
+
+        // =================================================
+        // QUARTER AVERAGES
+        // =================================================
+
+        const quarterlyAverage =
+            this.calculateQuarterlyAverages(
+                departments
+            );
+
+
+        // =================================================
+        // YEARLY REPORT AVERAGE
+        // =================================================
+
+        const yearlyAverage =
+            this.calculateYearlyReportAverage(
+                departments
+            );
+
+
+        // =================================================
+        // COLUMNS
+        // =================================================
+
+        let columns;
+
+
+        if (
+            selectedPeriod === "YEARLY"
+        ) {
+
+            columns = [
 
                 "Department",
 
@@ -911,7 +1201,39 @@ class HodReportService {
 
                 "Yearly Average"
 
-            ],
+            ];
+
+        } else {
+
+            columns = [
+
+                "Department",
+
+                selectedPeriod,
+
+                "Average"
+
+            ];
+
+        }
+
+
+        // =================================================
+        // RESULT
+        // =================================================
+
+        const result = {
+
+            report_type:
+                "hod_general",
+
+            financial_year:
+                year,
+
+            report_period:
+                selectedPeriod,
+
+            columns,
 
             departments,
 
@@ -923,11 +1245,39 @@ class HodReportService {
 
         };
 
+
+        console.log(
+            "HOD REPORT DEPARTMENTS:",
+            departments
+        );
+
+
+        console.log(
+            "HOD QUARTERLY AVERAGES:",
+            quarterlyAverage
+        );
+
+
+        console.log(
+            "HOD YEARLY AVERAGE:",
+            yearlyAverage
+        );
+
+
+        console.log(
+            "========================================"
+        );
+
+
+        return result;
+
     }
 
 
     // =====================================================
-    // HOD - SPECIAL REPORT
+    // GET SPECIAL REPORT
+    //
+    // Same evaluator logic as General.
     // =====================================================
 
     async getSpecialReport(
@@ -943,7 +1293,28 @@ class HodReportService {
 
             throw new ApiError(
                 401,
-                "Authenticated user is required."
+                "Authenticated HOD is required."
+            );
+
+        }
+
+
+        const hodDepartmentId =
+            Number(
+                user.department_id
+            );
+
+
+        if (
+            !Number.isInteger(
+                hodDepartmentId
+            ) ||
+            hodDepartmentId <= 0
+        ) {
+
+            throw new ApiError(
+                400,
+                "HOD department_id is missing."
             );
 
         }
@@ -959,8 +1330,7 @@ class HodReportService {
             String(
                 period || "ALL"
             )
-                .trim()
-                .toUpperCase();
+                .trim();
 
 
         // =================================================
@@ -975,10 +1345,6 @@ class HodReportService {
                 );
 
 
-        // =================================================
-        // ASSIGN LABELS
-        // =================================================
-
         const specialSurveys =
             surveys.map(
                 (
@@ -987,7 +1353,9 @@ class HodReportService {
                 ) => ({
 
                     survey_id:
-                        survey.survey_id,
+                        Number(
+                            survey.survey_id
+                        ),
 
                     survey_name:
                         survey.survey_name,
@@ -1014,15 +1382,20 @@ class HodReportService {
 
 
         if (
-            selectedPeriod !== "ALL"
+            selectedPeriod
+                .toUpperCase() !==
+            "ALL"
         ) {
 
             const selected =
                 specialSurveys.find(
                     survey =>
+
                         survey.label
                             .toUpperCase() ===
                         selectedPeriod
+                            .toUpperCase()
+
                 );
 
 
@@ -1039,26 +1412,15 @@ class HodReportService {
 
 
             selectedSurveyId =
-                selected.survey_id;
+                Number(
+                    selected.survey_id
+                );
 
         }
 
 
         // =================================================
-        // GET TARGET DEPARTMENTS
-        // =================================================
-
-        const targetDepartments =
-            await hodReportRepository
-                .getTargetDepartments(
-                    user.user_id,
-                    year,
-                    "special"
-                );
-
-
-        // =================================================
-        // GET SOURCE DATA
+        // SOURCE DATA
         // =================================================
 
         const rows =
@@ -1071,12 +1433,28 @@ class HodReportService {
 
 
         // =================================================
+        // ONLY LOGGED-IN HOD AS EVALUATOR
+        // =================================================
+
+        const evaluatorRows =
+            rows.filter(
+                row =>
+
+                    Number(
+                        row.evaluator_department_id
+                    ) ===
+                    hodDepartmentId
+
+            );
+
+
+        // =================================================
         // SCORE MAP
         // =================================================
 
         const scoreMap =
             await this.buildScoreMap(
-                rows
+                evaluatorRows
             );
 
 
@@ -1089,62 +1467,60 @@ class HodReportService {
 
 
         for (
-            const department
-            of targetDepartments
+            const row
+            of evaluatorRows
         ) {
 
-            const result = {
-
-                department_id:
-                    department.department_id,
-
-                department_code:
-                    department.department_code,
-
-                department_name:
-                    department.department_name
-
-            };
+            const departmentId =
+                Number(
+                    row.target_department_id
+                );
 
 
-            for (
-                const special
-                of specialSurveys
+            if (
+                !Number.isInteger(
+                    departmentId
+                ) ||
+                departmentId <= 0
             ) {
 
-                if (
-                    selectedSurveyId === null ||
-                    Number(
-                        special.survey_id
-                    ) === Number(
-                        selectedSurveyId
-                    )
-                ) {
-
-                    result[
-                        special.label
-                    ] = null;
-
-                }
+                continue;
 
             }
 
 
-            departmentMap.set(
+            if (
+                !departmentMap.has(
+                    departmentId
+                )
+            ) {
 
-                Number(
-                    department.department_id
-                ),
+                departmentMap.set(
 
-                result
+                    departmentId,
 
-            );
+                    {
+
+                        department_id:
+                            departmentId,
+
+                        department_code:
+                            row.target_department_code,
+
+                        department_name:
+                            row.target_department_name
+
+                    }
+
+                );
+
+            }
 
         }
 
 
         // =================================================
-        // SPECIAL SCORE GROUPING
+        // SPECIAL SCORES
         // =================================================
 
         const specialScores =
@@ -1153,7 +1529,7 @@ class HodReportService {
 
         for (
             const row
-            of rows
+            of evaluatorRows
         ) {
 
             const departmentId =
@@ -1168,24 +1544,15 @@ class HodReportService {
                 );
 
 
-            if (
-                !departmentMap.has(
-                    departmentId
-                )
-            ) {
-
-                continue;
-
-            }
-
-
             const special =
                 specialSurveys.find(
                     item =>
+
                         Number(
                             item.survey_id
                         ) ===
                         surveyId
+
                 );
 
 
@@ -1288,12 +1655,14 @@ class HodReportService {
             const special =
                 specialSurveys.find(
                     item =>
+
                         Number(
                             item.survey_id
                         ) ===
                         Number(
                             surveyId
                         )
+
                 );
 
 
@@ -1317,37 +1686,63 @@ class HodReportService {
         }
 
 
+        // =================================================
+        // DEPARTMENTS
+        // =================================================
+
         const departments =
             [
                 ...departmentMap.values()
             ];
 
 
+        departments.sort(
+            (
+                a,
+                b
+            ) =>
+
+                String(
+                    a.department_name || ""
+                )
+                    .localeCompare(
+                        String(
+                            b.department_name || ""
+                        )
+                    )
+
+        );
+
+
         // =================================================
-        // SPECIAL AVERAGE
+        // SPECIAL AVERAGES
         // =================================================
 
         const specialAverage = {};
 
 
+        const reportSpecialSurveys =
+            selectedSurveyId === null
+
+                ? specialSurveys
+
+                : specialSurveys.filter(
+                    special =>
+
+                        Number(
+                            special.survey_id
+                        ) ===
+                        Number(
+                            selectedSurveyId
+                        )
+
+                );
+
+
         for (
             const special
-            of specialSurveys
+            of reportSpecialSurveys
         ) {
-
-            if (
-                selectedSurveyId !== null &&
-                Number(
-                    special.survey_id
-                ) !== Number(
-                    selectedSurveyId
-                )
-            ) {
-
-                continue;
-
-            }
-
 
             specialAverage[
                 special.label
@@ -1382,20 +1777,7 @@ class HodReportService {
                 selectedPeriod,
 
             special_surveys:
-
-                selectedSurveyId === null
-
-                    ? specialSurveys
-
-                    : specialSurveys.filter(
-                        special =>
-                            Number(
-                                special.survey_id
-                            ) ===
-                            Number(
-                                selectedSurveyId
-                            )
-                    ),
+                reportSpecialSurveys,
 
             departments,
 
@@ -1442,6 +1824,10 @@ class HodReportService {
 
 }
 
+
+// =====================================================
+// EXPORT SINGLETON
+// =====================================================
 
 module.exports =
     new HodReportService();

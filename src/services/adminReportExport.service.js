@@ -1219,31 +1219,31 @@ class AdminReportExportService {
                 ) {
 
                     row.push(
-                        department.Q1 ?? "N/A"
+                        department.Q1 ?? "-"
                     );
 
                     row.push(
-                        department.Q2 ?? "N/A"
+                        department.Q2 ?? "-"
                     );
 
                     row.push(
-                        department.Q3 ?? "N/A"
+                        department.Q3 ?? "-"
                     );
 
                     row.push(
-                        department.Q4 ?? "N/A"
+                        department.Q4 ?? "-"
                     );
 
                     row.push(
                         department.yearly_average ??
-                        "N/A"
+                        "-"
                     );
 
                 } else {
 
                     row.push(
                         department[period] ??
-                        "N/A"
+                        "-"
                     );
 
                 }
@@ -1343,7 +1343,7 @@ class AdminReportExportService {
 
                         department[
                             special.label
-                        ] ?? "N/A"
+                        ] ?? "-"
 
                     );
 
@@ -1696,19 +1696,19 @@ class AdminReportExportService {
                                 department.department_name,
 
                                 department.Q1 ??
-                                    "N/A",
+                                    "-",
 
                                 department.Q2 ??
-                                    "N/A",
+                                    "-",
 
                                 department.Q3 ??
-                                    "N/A",
+                                    "-",
 
                                 department.Q4 ??
-                                    "N/A",
+                                    "-",
 
                                 department.yearly_average ??
-                                    "N/A"
+                                    "-"
 
                             ];
 
@@ -1721,7 +1721,7 @@ class AdminReportExportService {
                                 department[
                                     report.report_period
                                 ] ??
-                                    "N/A"
+                                    "-"
 
                             ];
 
@@ -1739,7 +1739,7 @@ class AdminReportExportService {
                                         department[
                                             special.label
                                         ] ??
-                                        "N/A"
+                                        "-"
                                 )
 
                         ];

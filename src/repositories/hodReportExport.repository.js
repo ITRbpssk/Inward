@@ -8,19 +8,29 @@ class HodReportExportRepository {
     // =====================================================
     // GET HOD GENERAL EXPORT SOURCE
     //
-    // HOD ला फक्त त्याने create केलेल्या surveys मधून
-    // report मिळेल.
+    // IMPORTANT:
     //
-    // IT HOD:
+    // HOD = logged-in department
     //
-    // IT target
-    //   ↓
+    // Survey mapping:
+    //
+    // from_department_id = department evaluated BY HOD
+    // to_department_id   = HOD department
+    //
+    // Therefore report department MUST be from_department_id.
+    //
+    // Example:
+    //
+    // Agriculture -> COMPUTER
+    // Accounts    -> COMPUTER
+    // HR          -> COMPUTER
+    //
+    // COMPUTER HOD report:
+    //
     // Agriculture
     // Accounts
     // HR
-    // Computer
-    //   ↓
-    // Submitted feedback
+    //
     // =====================================================
 
     async getGeneralReportSource(
@@ -52,17 +62,43 @@ class HodReportExportRepository {
                 s.created_by,
 
 
-                sd.department_id
+                /* =========================================
+                   DEPARTMENT EVALUATED BY HOD
+
+                   VERY IMPORTANT
+                ========================================= */
+
+                dm.from_department_id
                     AS target_department_id,
 
 
-                target.department_code
+                evaluator.department_code
                     AS target_department_code,
 
 
-                target.department_name
+                evaluator.department_name
                     AS target_department_name,
 
+
+                /* =========================================
+                   HOD / TARGET DEPARTMENT
+                ========================================= */
+
+                dm.to_department_id
+                    AS hod_department_id,
+
+
+                target.department_code
+                    AS hod_department_code,
+
+
+                target.department_name
+                    AS hod_department_name,
+
+
+                /* =========================================
+                   MAPPING
+                ========================================= */
 
                 dm.mapping_id,
 
@@ -79,18 +115,24 @@ class HodReportExportRepository {
                     AS evaluator_department_name,
 
 
-                f.feedback_id,
+                /* =========================================
+                   FEEDBACK
+                ========================================= */
 
+                f.feedback_id,
 
                 f.status
                     AS feedback_status,
-
 
                 f.submitted_on
 
 
             FROM surveys s
 
+
+            /* =============================================
+               SURVEY TARGET DEPARTMENT
+            ============================================= */
 
             INNER JOIN survey_departments sd
 
@@ -104,6 +146,10 @@ class HodReportExportRepository {
                    sd.department_id
 
 
+            /* =============================================
+               SURVEY MAPPINGS
+            ============================================= */
+
             INNER JOIN department_mappings dm
 
                 ON dm.survey_id =
@@ -113,11 +159,19 @@ class HodReportExportRepository {
                    sd.department_id
 
 
+            /* =============================================
+               DEPARTMENT EVALUATED BY HOD
+            ============================================= */
+
             INNER JOIN departments evaluator
 
                 ON evaluator.department_id =
                    dm.from_department_id
 
+
+            /* =============================================
+               SUBMITTED FEEDBACK ONLY
+            ============================================= */
 
             LEFT JOIN feedbacks f
 
@@ -130,15 +184,30 @@ class HodReportExportRepository {
                AND f.to_department_id =
                    dm.to_department_id
 
-               AND f.status = 'submitted'
+               AND LOWER(
+                    TRIM(
+                        COALESCE(
+                            f.status,
+                            ''
+                        )
+                    )
+               ) = 'submitted'
 
 
             WHERE
+
+                /* =========================================
+                   SURVEY CREATED BY LOGGED-IN HOD
+                ========================================= */
 
                 s.created_by = ?
 
                 AND s.financial_year = ?
 
+
+                /* =========================================
+                   GENERAL SURVEY
+                ========================================= */
 
                 AND LOWER(
                     TRIM(
@@ -150,7 +219,18 @@ class HodReportExportRepository {
                 ) = 'general'
 
 
-                AND s.quarter IN (
+                /* =========================================
+                   VALID QUARTER
+                ========================================= */
+
+                AND UPPER(
+                    TRIM(
+                        COALESCE(
+                            s.quarter,
+                            ''
+                        )
+                    )
+                ) IN (
 
                     'Q1',
                     'Q2',
@@ -160,16 +240,60 @@ class HodReportExportRepository {
                 )
 
 
-                AND s.status <> 'draft'
+                /* =========================================
+                   DO NOT INCLUDE DRAFT
+                ========================================= */
+
+                AND LOWER(
+                    TRIM(
+                        COALESCE(
+                            s.status,
+                            ''
+                        )
+                    )
+                ) <> 'draft'
 
 
-                AND dm.status = 'active'
+                /* =========================================
+                   ACTIVE MAPPING
+                ========================================= */
+
+                AND LOWER(
+                    TRIM(
+                        COALESCE(
+                            dm.status,
+                            ''
+                        )
+                    )
+                ) = 'active'
 
 
-                AND target.status = 'active'
+                /* =========================================
+                   ACTIVE HOD TARGET
+                ========================================= */
+
+                AND LOWER(
+                    TRIM(
+                        COALESCE(
+                            target.status,
+                            ''
+                        )
+                    )
+                ) = 'active'
 
 
-                AND evaluator.status = 'active'
+                /* =========================================
+                   ACTIVE EVALUATED DEPARTMENT
+                ========================================= */
+
+                AND LOWER(
+                    TRIM(
+                        COALESCE(
+                            evaluator.status,
+                            ''
+                        )
+                    )
+                ) = 'active'
 
         `;
 
@@ -183,70 +307,96 @@ class HodReportExportRepository {
         ];
 
 
-        // =================================================
-        // PERIOD
-        // =================================================
+        // =====================================================
+        // QUARTER FILTER
+        // =====================================================
+
+        const normalizedPeriod =
+            String(
+                period || ""
+            )
+                .trim()
+                .toUpperCase();
+
 
         if (
-
-            period &&
-
             [
                 "Q1",
                 "Q2",
                 "Q3",
                 "Q4"
             ].includes(
-
-                String(period)
-                    .trim()
-                    .toUpperCase()
-
+                normalizedPeriod
             )
-
         ) {
 
             query += `
 
-                AND s.quarter = ?
+                AND UPPER(
+                    TRIM(
+                        s.quarter
+                    )
+                ) = ?
 
             `;
 
 
             params.push(
-
-                String(period)
-                    .trim()
-                    .toUpperCase()
-
+                normalizedPeriod
             );
 
         }
 
 
+        // =====================================================
+        // ORDER
+        //
+        // HOD REPORT:
+        //
+        // Agriculture
+        // Accounts
+        // HR
+        //
+        // =====================================================
+
         query += `
 
             ORDER BY
 
-                target.department_name ASC,
+                evaluator.department_name ASC,
 
 
-                CASE s.quarter
+                CASE
+                    WHEN UPPER(
+                        TRIM(
+                            s.quarter
+                        )
+                    ) = 'Q1'
+                    THEN 1
 
-                    WHEN 'Q1' THEN 1
+                    WHEN UPPER(
+                        TRIM(
+                            s.quarter
+                        )
+                    ) = 'Q2'
+                    THEN 2
 
-                    WHEN 'Q2' THEN 2
+                    WHEN UPPER(
+                        TRIM(
+                            s.quarter
+                        )
+                    ) = 'Q3'
+                    THEN 3
 
-                    WHEN 'Q3' THEN 3
-
-                    WHEN 'Q4' THEN 4
+                    WHEN UPPER(
+                        TRIM(
+                            s.quarter
+                        )
+                    ) = 'Q4'
+                    THEN 4
 
                     ELSE 5
-
                 END,
-
-
-                evaluator.department_name ASC,
 
 
                 dm.mapping_id ASC
@@ -257,13 +407,9 @@ class HodReportExportRepository {
         const [
             rows
         ] =
-
             await pool.query(
-
                 query,
-
                 params
-
             );
 
 
@@ -274,6 +420,12 @@ class HodReportExportRepository {
 
     // =====================================================
     // GET HOD SPECIAL EXPORT SOURCE
+    //
+    // Same department logic as GENERAL.
+    //
+    // from_department_id = department evaluated by HOD
+    // to_department_id   = HOD department
+    //
     // =====================================================
 
     async getSpecialReportSource(
@@ -305,17 +457,41 @@ class HodReportExportRepository {
                 s.created_by,
 
 
-                sd.department_id
+                /* =========================================
+                   DEPARTMENT EVALUATED BY HOD
+                ========================================= */
+
+                dm.from_department_id
                     AS target_department_id,
 
 
-                target.department_code
+                evaluator.department_code
                     AS target_department_code,
 
 
-                target.department_name
+                evaluator.department_name
                     AS target_department_name,
 
+
+                /* =========================================
+                   HOD DEPARTMENT
+                ========================================= */
+
+                dm.to_department_id
+                    AS hod_department_id,
+
+
+                target.department_code
+                    AS hod_department_code,
+
+
+                target.department_name
+                    AS hod_department_name,
+
+
+                /* =========================================
+                   MAPPING
+                ========================================= */
 
                 dm.mapping_id,
 
@@ -332,12 +508,14 @@ class HodReportExportRepository {
                     AS evaluator_department_name,
 
 
-                f.feedback_id,
+                /* =========================================
+                   FEEDBACK
+                ========================================= */
 
+                f.feedback_id,
 
                 f.status
                     AS feedback_status,
-
 
                 f.submitted_on
 
@@ -383,7 +561,13 @@ class HodReportExportRepository {
                AND f.to_department_id =
                    dm.to_department_id
 
-               AND f.status = 'submitted'
+               AND LOWER(
+                    TRIM(
+                        COALESCE(
+                            f.status,
+                            ''
+                        )
+               )) = 'submitted'
 
 
             WHERE
@@ -392,6 +576,10 @@ class HodReportExportRepository {
 
                 AND s.financial_year = ?
 
+
+                /* =========================================
+                   SPECIAL SURVEY
+                ========================================= */
 
                 AND LOWER(
                     TRIM(
@@ -403,16 +591,56 @@ class HodReportExportRepository {
                 ) = 'special'
 
 
-                AND s.status <> 'draft'
+                /* =========================================
+                   DO NOT INCLUDE DRAFT
+                ========================================= */
+
+                AND LOWER(
+                    TRIM(
+                        COALESCE(
+                            s.status,
+                            ''
+                        )
+                    )
+                ) <> 'draft'
 
 
-                AND dm.status = 'active'
+                /* =========================================
+                   ACTIVE MAPPING
+                ========================================= */
+
+                AND LOWER(
+                    TRIM(
+                        COALESCE(
+                            dm.status,
+                            ''
+                        )
+                    )
+                ) = 'active'
 
 
-                AND target.status = 'active'
+                /* =========================================
+                   ACTIVE DEPARTMENTS
+                ========================================= */
+
+                AND LOWER(
+                    TRIM(
+                        COALESCE(
+                            target.status,
+                            ''
+                        )
+                    )
+                ) = 'active'
 
 
-                AND evaluator.status = 'active'
+                AND LOWER(
+                    TRIM(
+                        COALESCE(
+                            evaluator.status,
+                            ''
+                        )
+                    )
+                ) = 'active'
 
         `;
 
@@ -426,18 +654,14 @@ class HodReportExportRepository {
         ];
 
 
-        // =================================================
+        // =====================================================
         // SPECIFIC SPECIAL SURVEY
-        // =================================================
+        // =====================================================
 
         if (
-
             surveyId !== null &&
-
             surveyId !== undefined &&
-
             surveyId !== ''
-
         ) {
 
             query += `
@@ -448,9 +672,7 @@ class HodReportExportRepository {
 
 
             params.push(
-
                 Number(surveyId)
-
             );
 
         }
@@ -460,11 +682,9 @@ class HodReportExportRepository {
 
             ORDER BY
 
-                s.survey_id ASC,
-
-                target.department_name ASC,
-
                 evaluator.department_name ASC,
+
+                s.survey_id ASC,
 
                 dm.mapping_id ASC
 
@@ -474,13 +694,9 @@ class HodReportExportRepository {
         const [
             rows
         ] =
-
             await pool.query(
-
                 query,
-
                 params
-
             );
 
 
@@ -490,9 +706,30 @@ class HodReportExportRepository {
 
 
     // =====================================================
-    // GET HOD TARGET DEPARTMENTS
+    // GET HOD EVALUATED DEPARTMENTS
     //
-    // Only departments selected in HOD surveys.
+    // VERY IMPORTANT
+    //
+    // This returns:
+    //
+    // from_department_id
+    //
+    // because HOD's report means:
+    //
+    // "Which departments did this HOD evaluate?"
+    //
+    // Example:
+    //
+    // Agriculture -> Computer
+    // Accounts    -> Computer
+    // HR          -> Computer
+    //
+    // Result:
+    //
+    // Agriculture
+    // Accounts
+    // HR
+    //
     // =====================================================
 
     async getTargetDepartments(
@@ -505,11 +742,11 @@ class HodReportExportRepository {
 
             SELECT DISTINCT
 
-                d.department_id,
+                evaluator.department_id,
 
-                d.department_code,
+                evaluator.department_code,
 
-                d.department_name
+                evaluator.department_name
 
 
             FROM surveys s
@@ -521,38 +758,111 @@ class HodReportExportRepository {
                    s.survey_id
 
 
-            INNER JOIN departments d
+            INNER JOIN department_mappings dm
 
-                ON d.department_id =
+                ON dm.survey_id =
+                   s.survey_id
+
+               AND dm.to_department_id =
                    sd.department_id
 
 
+            INNER JOIN departments target
+
+                ON target.department_id =
+                   dm.to_department_id
+
+
+            INNER JOIN departments evaluator
+
+                ON evaluator.department_id =
+                   dm.from_department_id
+
+
             WHERE
+
+                /* =========================================
+                   LOGGED-IN HOD CREATED THE SURVEY
+                ========================================= */
 
                 s.created_by = ?
 
                 AND s.financial_year = ?
 
 
+                /* =========================================
+                   SURVEY TYPE
+                ========================================= */
+
                 AND LOWER(
                     TRIM(
                         COALESCE(
                             s.survey_type,
-                            ''
+                            'general'
                         )
                     )
                 ) = LOWER(?)
 
 
-                AND s.status <> 'draft'
+                /* =========================================
+                   DO NOT INCLUDE DRAFT
+                ========================================= */
+
+                AND LOWER(
+                    TRIM(
+                        COALESCE(
+                            s.status,
+                            ''
+                        )
+                    )
+                ) <> 'draft'
 
 
-                AND d.status = 'active'
+                /* =========================================
+                   ACTIVE MAPPING
+                ========================================= */
+
+                AND LOWER(
+                    TRIM(
+                        COALESCE(
+                            dm.status,
+                            ''
+                        )
+                    )
+                ) = 'active'
+
+
+                /* =========================================
+                   ACTIVE TARGET
+                ========================================= */
+
+                AND LOWER(
+                    TRIM(
+                        COALESCE(
+                            target.status,
+                            ''
+                        )
+                    )
+                ) = 'active'
+
+
+                /* =========================================
+                   ACTIVE EVALUATOR
+                ========================================= */
+
+                AND LOWER(
+                    TRIM(
+                        COALESCE(
+                            evaluator.status,
+                            ''
+                        )
+                    )
+                ) = 'active'
 
 
             ORDER BY
 
-                d.department_name ASC
+                evaluator.department_name ASC
 
         `;
 
@@ -560,11 +870,8 @@ class HodReportExportRepository {
         const [
             rows
         ] =
-
             await pool.query(
-
                 query,
-
                 [
 
                     Number(userId),
@@ -574,7 +881,6 @@ class HodReportExportRepository {
                     surveyType
 
                 ]
-
             );
 
 
@@ -635,7 +941,14 @@ class HodReportExportRepository {
                 ) = 'special'
 
 
-                AND status <> 'draft'
+                AND LOWER(
+                    TRIM(
+                        COALESCE(
+                            status,
+                            ''
+                        )
+                    )
+                ) <> 'draft'
 
 
             ORDER BY
@@ -648,11 +961,8 @@ class HodReportExportRepository {
         const [
             rows
         ] =
-
             await pool.query(
-
                 query,
-
                 [
 
                     Number(userId),
@@ -660,14 +970,12 @@ class HodReportExportRepository {
                     financialYear
 
                 ]
-
             );
 
 
         return rows;
 
     }
-
 
 }
 
