@@ -39,7 +39,7 @@ class DashboardController {
 
 
     // =====================================================
-    // GET EVALUATION OVERVIEW
+    // GENERAL EVALUATION OVERVIEW
     //
     // Query:
     //
@@ -68,6 +68,56 @@ class DashboardController {
                         targetDepartmentId,
 
                         quarter
+
+                    );
+
+
+            return res.status(200).json({
+
+                success: true,
+
+                data
+
+            });
+
+        } catch (error) {
+
+            next(error);
+
+        }
+
+    }
+
+
+    // =====================================================
+    // SPECIAL EVALUATION OVERVIEW
+    //
+    // Query:
+    //
+    // targetDepartmentId
+    //
+    // IMPORTANT:
+    // No quarter required.
+    // =====================================================
+
+    async getSpecialEvaluationOverview(
+        req,
+        res,
+        next
+    ) {
+
+        try {
+
+            const {
+                targetDepartmentId
+            } = req.query;
+
+
+            const data =
+                await dashboardService
+                    .getSpecialEvaluationOverview(
+
+                        targetDepartmentId
 
                     );
 

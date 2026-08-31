@@ -1,12 +1,12 @@
-const { pool } = require("../config/db");
+const { pool } =
+    require("../config/db");
+
 
 class DashboardRepository {
 
+
     // =====================================================
     // GET TARGET DEPARTMENTS
-    //
-    // Departments which are configured as target departments
-    // in at least one survey.
     // =====================================================
 
     async findTargetDepartments() {
@@ -21,10 +21,12 @@ class DashboardRepository {
             FROM survey_departments sd
 
             INNER JOIN surveys s
-                ON s.survey_id = sd.survey_id
+                ON s.survey_id =
+                   sd.survey_id
 
             INNER JOIN departments d
-                ON d.department_id = sd.department_id
+                ON d.department_id =
+                   sd.department_id
 
             WHERE
                 d.status = 'active'
@@ -35,20 +37,22 @@ class DashboardRepository {
                 d.department_name ASC
         `;
 
+
         const [rows] =
             await pool.query(query);
 
+
         return rows;
+
     }
 
 
     // =====================================================
-    // FIND LATEST SURVEY
+    // FIND GENERAL SURVEY
     //
     // Target Department + Quarter
     //
-    // If multiple surveys exist for same combination,
-    // latest survey_id is selected.
+    // Existing functionality - NO CHANGE
     // =====================================================
 
     async findSurveyByTargetDepartmentAndQuarter(
@@ -72,7 +76,8 @@ class DashboardRepository {
             FROM surveys s
 
             INNER JOIN survey_departments sd
-                ON sd.survey_id = s.survey_id
+                ON sd.survey_id =
+                   s.survey_id
 
             WHERE
                 sd.department_id = ?
@@ -87,39 +92,102 @@ class DashboardRepository {
             LIMIT 1
         `;
 
+
         const [rows] =
             await pool.query(
+
                 query,
+
                 [
                     targetDepartmentId,
                     quarter
                 ]
+
             );
 
+
         return rows[0] || null;
+
+    }
+
+
+    // =====================================================
+    // FIND SPECIAL SURVEY
+    //
+    // Target Department ONLY
+    //
+    // Quarter is NOT used.
+    //
+    // Latest Special Survey is selected.
+    // =====================================================
+
+    async findSpecialSurveyByTargetDepartment(
+        targetDepartmentId
+    ) {
+
+        const query = `
+            SELECT
+
+                s.survey_id,
+                s.survey_name,
+                s.survey_type,
+                s.financial_year,
+                s.quarter,
+                s.start_date,
+                s.end_date,
+                s.status,
+                s.created_by
+
+            FROM surveys s
+
+            INNER JOIN survey_departments sd
+                ON sd.survey_id =
+                   s.survey_id
+
+            WHERE
+                sd.department_id = ?
+
+                AND LOWER(
+                    TRIM(
+                        s.survey_type
+                    )
+                ) = 'special'
+
+                AND s.status <> 'draft'
+
+            ORDER BY
+                s.survey_id DESC
+
+            LIMIT 1
+        `;
+
+
+        const [rows] =
+            await pool.query(
+
+                query,
+
+                [
+                    targetDepartmentId
+                ]
+
+            );
+
+
+        return rows[0] || null;
+
     }
 
 
     // =====================================================
     // GET EVALUATION OVERVIEW
     //
-    // Mapping:
+    // Used by BOTH:
     //
-    // from_department_id
-    //        =
-    // Evaluating Department
+    // General Survey
+    // Special Survey
     //
-    // to_department_id
-    //        =
-    // Evaluation Target
-    //
-    // LEFT JOIN feedbacks:
-    //
-    // mapping exists + feedback exists
-    //     => submitted
-    //
-    // mapping exists + feedback missing
-    //     => pending
+    // surveyId decides which survey.
     // =====================================================
 
     async getEvaluationOverview(
@@ -196,19 +264,26 @@ class DashboardRepository {
                 evaluator.department_name ASC
         `;
 
+
         const [rows] =
             await pool.query(
+
                 query,
+
                 [
                     surveyId,
                     targetDepartmentId
                 ]
+
             );
 
+
         return rows;
+
     }
 
 }
+
 
 module.exports =
     new DashboardRepository();

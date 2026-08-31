@@ -1597,694 +1597,1328 @@ class HodReportExportService {
     // GENERATE EXCEL
     // =====================================================
 
-    async generateExcel(
-        report
+async generateExcel(report) {
+
+    const ExcelJS = require("exceljs");
+
+    const workbook =
+        new ExcelJS.Workbook();
+
+    const worksheet =
+        workbook.addWorksheet("Report");
+
+
+    // =========================================================
+    // COMMON COMPANY DETAILS
+    // =========================================================
+
+    const companyName =
+        "RAJARAMBAPU PATIL SAHAKARI SAKHAR KARKHANA LTD.";
+
+    const companyLocation =
+        "RAJARAMNAGAR";
+
+    const generatedOn =
+        new Date().toLocaleDateString("en-GB");
+
+
+    // =========================================================
+    // HELPER : COMMON HEADER
+    // =========================================================
+
+    const addCompanyHeader = (
+        title,
+        totalColumns
+    ) => {
+
+        // -----------------------------------------------------
+        // COMPANY NAME
+        // -----------------------------------------------------
+
+        worksheet.addRow([
+            companyName
+        ]);
+
+        worksheet.mergeCells(
+            1,
+            1,
+            1,
+            totalColumns
+        );
+
+        const companyCell =
+            worksheet.getCell(1, 1);
+
+        companyCell.font = {
+            bold: true,
+            size: 18,
+            color: {
+                argb: "1F355E"
+            }
+        };
+
+        companyCell.alignment = {
+            horizontal: "center",
+            vertical: "center"
+        };
+
+        worksheet.getRow(1).height = 30;
+
+
+        // -----------------------------------------------------
+        // LOCATION
+        // -----------------------------------------------------
+
+        worksheet.addRow([
+            companyLocation
+        ]);
+
+        worksheet.mergeCells(
+            2,
+            1,
+            2,
+            totalColumns
+        );
+
+        const locationCell =
+            worksheet.getCell(2, 1);
+
+        locationCell.font = {
+            bold: true,
+            size: 11,
+            color: {
+                argb: "65758B"
+            }
+        };
+
+        locationCell.alignment = {
+            horizontal: "center",
+            vertical: "center"
+        };
+
+        worksheet.getRow(2).height = 20;
+
+
+        // -----------------------------------------------------
+        // BLUE SEPARATOR
+        // -----------------------------------------------------
+
+        worksheet.addRow([]);
+
+        worksheet.mergeCells(
+            3,
+            1,
+            3,
+            totalColumns
+        );
+
+        const separator =
+            worksheet.getCell(3, 1);
+
+        separator.border = {
+            bottom: {
+                style: "medium",
+                color: {
+                    argb: "246BCE"
+                }
+            }
+        };
+
+        worksheet.getRow(3).height = 8;
+
+
+        // -----------------------------------------------------
+        // REPORT TITLE
+        // -----------------------------------------------------
+
+        worksheet.addRow([
+            title
+        ]);
+
+        worksheet.mergeCells(
+            4,
+            1,
+            4,
+            totalColumns
+        );
+
+        const titleCell =
+            worksheet.getCell(4, 1);
+
+        titleCell.font = {
+            bold: true,
+            size: 16,
+            color: {
+                argb: "1F355E"
+            }
+        };
+
+        titleCell.alignment = {
+            horizontal: "center",
+            vertical: "center"
+        };
+
+        worksheet.getRow(4).height = 28;
+
+    };
+
+
+    // =========================================================
+    // HELPER : COMMON TABLE HEADER STYLE
+    // =========================================================
+
+    const styleHeaderRow = (
+        row
+    ) => {
+
+        row.height = 28;
+
+        row.eachCell(cell => {
+
+            cell.font = {
+                bold: true,
+                size: 11,
+                color: {
+                    argb: "FFFFFF"
+                }
+            };
+
+            cell.fill = {
+                type: "pattern",
+                pattern: "solid",
+                fgColor: {
+                    argb: "1F355E"
+                }
+            };
+
+            cell.alignment = {
+                horizontal: "center",
+                vertical: "center",
+                wrapText: true
+            };
+
+            cell.border = {
+
+                top: {
+                    style: "thin",
+                    color: {
+                        argb: "AFC2DD"
+                    }
+                },
+
+                bottom: {
+                    style: "thin",
+                    color: {
+                        argb: "AFC2DD"
+                    }
+                },
+
+                left: {
+                    style: "thin",
+                    color: {
+                        argb: "AFC2DD"
+                    }
+                },
+
+                right: {
+                    style: "thin",
+                    color: {
+                        argb: "AFC2DD"
+                    }
+                }
+
+            };
+
+        });
+
+    };
+
+
+    // =========================================================
+    // HELPER : DATA ROW STYLE
+    // =========================================================
+
+    const styleDataRow = (
+        row
+    ) => {
+
+        row.height = 23;
+
+        row.eachCell(
+            (cell, columnNumber) => {
+
+                cell.font = {
+                    size: 10,
+                    bold:
+                        columnNumber === 1
+                };
+
+                cell.alignment = {
+
+                    horizontal:
+                        columnNumber === 1
+                            ? "left"
+                            : "center",
+
+                    vertical: "center",
+
+                    wrapText: true
+
+                };
+
+                cell.border = {
+
+                    top: {
+                        style: "thin",
+                        color: {
+                            argb: "C9D5E5"
+                        }
+                    },
+
+                    bottom: {
+                        style: "thin",
+                        color: {
+                            argb: "C9D5E5"
+                        }
+                    },
+
+                    left: {
+                        style: "thin",
+                        color: {
+                            argb: "C9D5E5"
+                        }
+                    },
+
+                    right: {
+                        style: "thin",
+                        color: {
+                            argb: "C9D5E5"
+                        }
+                    }
+
+                };
+
+            }
+        );
+
+    };
+
+
+    // =========================================================
+    // GENERAL REPORT
+    // =========================================================
+
+    if (
+        report.report_type === "admin_general" ||
+        report.report_type === "hod_general"
     ) {
 
+        const period =
+            report.report_period;
+
+        let headers;
+
+
+        // -----------------------------------------------------
+        // HEADERS
+        // -----------------------------------------------------
+
         if (
-            !report
+            period === "YEARLY"
         ) {
 
-            throw new ApiError(
-                400,
-                "Report data is required."
+            headers = [
+
+                "Department",
+
+                "Q1",
+
+                "Q2",
+
+                "Q3",
+
+                "Q4",
+
+                "Yearly Average"
+
+            ];
+
+        } else {
+
+            headers = [
+
+                "Department",
+
+                period
+
+            ];
+
+        }
+
+
+        const totalColumns =
+            headers.length;
+
+
+        // -----------------------------------------------------
+        // TITLE
+        // -----------------------------------------------------
+
+        const reportTitle =
+            report.report_type === "hod_general"
+                ? "HOD GENERAL REPORT"
+                : "ADMIN GENERAL REPORT";
+
+
+        addCompanyHeader(
+            reportTitle,
+            totalColumns
+        );
+
+
+        // -----------------------------------------------------
+        // FINANCIAL YEAR + PERIOD
+        // -----------------------------------------------------
+
+        worksheet.addRow([
+
+            `Financial Year: ${report.financial_year}`,
+
+            ...Array(
+                totalColumns - 2
+            ).fill(""),
+
+            `Period: ${period}`
+
+        ]);
+
+
+        if (
+            totalColumns >= 3
+        ) {
+
+            worksheet.mergeCells(
+                5,
+                2,
+                5,
+                totalColumns - 1
             );
 
         }
 
 
-        const hodDepartment =
-            await this.getHodDepartment(
-                report?._user || {}
-            );
+        const financialCell =
+            worksheet.getCell(5, 1);
 
-
-        const prepared =
-            report?.report_type === "hod_special"
-
-                ? this.prepareSpecialExport(
-                    report,
-                    hodDepartment
-                )
-
-                : this.prepareGeneralExport(
-                    report,
-                    hodDepartment
-                );
-
-
-        const workbook =
-            new ExcelJS.Workbook();
-
-
-        workbook.creator =
-            "User Satisfaction Index";
-
-
-        workbook.created =
-            new Date();
-
-
-        workbook.modified =
-            new Date();
-
-
-        const worksheet =
-            workbook.addWorksheet(
-                "Evaluation Report"
-            );
-
-
-        const columnCount =
-            prepared.headers.length;
-
-
-        // =================================================
-        // PAGE SETUP
-        // =================================================
-
-        worksheet.pageSetup = {
-
-            orientation:
-                columnCount > 5
-                    ? "landscape"
-                    : "portrait",
-
-            paperSize:
-                9,
-
-            fitToPage:
-                true,
-
-            fitToWidth:
-                1,
-
-            fitToHeight:
-                0
-
+        financialCell.font = {
+            size: 10,
+            color: {
+                argb: "65758B"
+            }
         };
 
-
-        worksheet.pageMargins = {
-
-            left:
-                0.30,
-
-            right:
-                0.30,
-
-            top:
-                0.50,
-
-            bottom:
-                0.50,
-
-            header:
-                0.20,
-
-            footer:
-                0.20
-
+        financialCell.alignment = {
+            horizontal: "left",
+            vertical: "center"
         };
-
-
-        worksheet.pageSetup.horizontalCentered =
-            true;
-
-
-        // =================================================
-        // TITLE
-        // =================================================
-
-        worksheet.mergeCells(
-            1,
-            1,
-            1,
-            columnCount
-        );
-
-
-        const titleCell =
-            worksheet.getCell(
-                1,
-                1
-            );
-
-
-        titleCell.value =
-            prepared.title;
-
-
-        titleCell.font = {
-
-            name:
-                "Arial",
-
-            size:
-                16,
-
-            bold:
-                true
-
-        };
-
-
-        titleCell.alignment = {
-
-            horizontal:
-                "center",
-
-            vertical:
-                "middle"
-
-        };
-
-
-        worksheet.getRow(1).height =
-            28;
-
-
-        // =================================================
-        // FINANCIAL YEAR
-        // =================================================
-
-        worksheet.mergeCells(
-            2,
-            1,
-            2,
-            columnCount
-        );
-
-
-        const yearCell =
-            worksheet.getCell(
-                2,
-                1
-            );
-
-
-        yearCell.value =
-            `Financial Year: ${prepared.financialYear}`;
-
-
-        yearCell.font = {
-
-            name:
-                "Arial",
-
-            size:
-                10,
-
-            bold:
-                true
-
-        };
-
-
-        yearCell.alignment = {
-
-            horizontal:
-                "left",
-
-            vertical:
-                "middle"
-
-        };
-
-
-        worksheet.getRow(2).height =
-            20;
-
-
-        // =================================================
-        // PERIOD
-        // =================================================
-
-        worksheet.mergeCells(
-            3,
-            1,
-            3,
-            columnCount
-        );
 
 
         const periodCell =
             worksheet.getCell(
-                3,
-                1
+                5,
+                totalColumns
             );
-
-
-        periodCell.value =
-            `Period: ${prepared.period}`;
-
 
         periodCell.font = {
-
-            name:
-                "Arial",
-
-            size:
-                10
-
+            size: 10,
+            color: {
+                argb: "65758B"
+            }
         };
-
 
         periodCell.alignment = {
-
-            horizontal:
-                "left",
-
-            vertical:
-                "middle"
-
+            horizontal: "right",
+            vertical: "center"
         };
 
-
-        worksheet.getRow(3).height =
-            20;
+        worksheet.getRow(5).height = 22;
 
 
-        // =================================================
-        // HEADER
-        // =================================================
+        // -----------------------------------------------------
+        // GENERATED ON
+        // -----------------------------------------------------
+
+        worksheet.addRow([
+            `Generated On: ${generatedOn}`
+        ]);
+
+        worksheet.mergeCells(
+            6,
+            1,
+            6,
+            totalColumns
+        );
+
+        const generatedCell =
+            worksheet.getCell(6, 1);
+
+        generatedCell.font = {
+            size: 9,
+            color: {
+                argb: "65758B"
+            }
+        };
+
+        generatedCell.alignment = {
+            horizontal: "right",
+            vertical: "center"
+        };
+
+        worksheet.getRow(6).height = 20;
+
+
+        // -----------------------------------------------------
+        // SPACE
+        // -----------------------------------------------------
+
+        worksheet.addRow([]);
+
+
+        // -----------------------------------------------------
+        // TABLE HEADER
+        // -----------------------------------------------------
+
+        worksheet.addRow(headers);
 
         const headerRow =
-            worksheet.getRow(5);
+            worksheet.getRow(8);
 
-
-        prepared.headers.forEach(
-            (
-                header,
-                index
-            ) => {
-
-                const cell =
-                    headerRow.getCell(
-                        index + 1
-                    );
-
-
-                cell.value =
-                    header;
-
-
-                cell.font = {
-
-                    name:
-                        "Arial",
-
-                    size:
-                        10,
-
-                    bold:
-                        true
-
-                };
-
-
-                cell.alignment = {
-
-                    horizontal:
-                        index === 0
-                            ? "left"
-                            : "center",
-
-                    vertical:
-                        "middle"
-
-                };
-
-
-                cell.border = {
-
-                    top: {
-
-                        style:
-                            "thin"
-
-                    },
-
-                    bottom: {
-
-                        style:
-                            "thin"
-
-                    },
-
-                    left: {
-
-                        style:
-                            "thin"
-
-                    },
-
-                    right: {
-
-                        style:
-                            "thin"
-
-                    }
-
-                };
-
-            }
+        styleHeaderRow(
+            headerRow
         );
 
 
-        headerRow.height =
-            24;
+        // -----------------------------------------------------
+        // DATA
+        // -----------------------------------------------------
+
+// -----------------------------------------------------
+// DATA
+// -----------------------------------------------------
+
+for (
+    const department
+    of report.departments || []
+) {
+
+    const row = [
+
+        department.department_name ||
+        department.department_code ||
+        "-"
+
+    ];
 
 
-        // =================================================
-        // DATA ROWS
-        // =================================================
+    // =====================================================
+    // YEARLY
+    // =====================================================
 
-        prepared.rows.forEach(
-            row => {
+    if (
+        period === "YEARLY"
+    ) {
 
-                const excelRow =
-                    worksheet.addRow(
-                        row
-                    );
+        row.push(
+            department.Q1 ?? "-"
+        );
 
+        row.push(
+            department.Q2 ?? "-"
+        );
 
-                excelRow.eachCell(
-                    (
-                        cell,
-                        index
-                    ) => {
+        row.push(
+            department.Q3 ?? "-"
+        );
 
-                        cell.font = {
+        row.push(
+            department.Q4 ?? "-"
+        );
 
-                            name:
-                                "Arial",
+        row.push(
+            department.yearly_average ?? "-"
+        );
 
-                            size:
-                                10
-
-                        };
-
-
-                        cell.alignment = {
-
-                            horizontal:
-                                index === 1
-                                    ? "left"
-                                    : "center",
-
-                            vertical:
-                                "middle"
-
-                        };
+    }
 
 
-                        cell.border = {
+    // =====================================================
+    // QUARTERLY
+    // =====================================================
 
-                            top: {
+    else {
 
-                                style:
-                                    "thin"
+        row.push(
+            department[period] ?? "-"
+        );
 
-                            },
-
-                            bottom: {
-
-                                style:
-                                    "thin"
-
-                            },
-
-                            left: {
-
-                                style:
-                                    "thin"
-
-                            },
-
-                            right: {
-
-                                style:
-                                    "thin"
-
-                            }
-
-                        };
+    }
 
 
-                        if (
-                            typeof cell.value ===
-                            "number"
-                        ) {
+    const excelRow =
+        worksheet.addRow(
+            row
+        );
 
-                            cell.numFmt =
-                                "0.00";
 
-                        }
+    styleDataRow(
+        excelRow
+    );
 
-                    }
+
+    // -----------------------------------------------------
+    // NUMBER FORMAT
+    // -----------------------------------------------------
+
+    excelRow.eachCell(
+        (
+            cell,
+            columnNumber
+        ) => {
+
+            if (
+                columnNumber > 1 &&
+                typeof cell.value === "number"
+            ) {
+
+                cell.numFmt =
+                    "0.00";
+
+            }
+
+        }
+    );
+
+}
+
+
+// =========================================================
+// AVERAGE ROW
+// =========================================================
+//
+// YEARLY:
+//
+// Average | Q1 Avg | Q2 Avg | Q3 Avg | Q4 Avg | Yearly Avg
+//
+// QUARTER:
+//
+// Average | Selected Quarter Avg
+// =========================================================
+
+
+// ---------------------------------------------------------
+// SAFE AVERAGE HELPER
+// ---------------------------------------------------------
+
+const calculateColumnAverage =
+    (
+        values
+    ) => {
+
+        const validValues =
+            values
+                .map(
+                    value =>
+                        Number(value)
+                )
+                .filter(
+                    value =>
+                        Number.isFinite(
+                            value
+                        )
                 );
 
 
-                excelRow.height =
-                    22;
+        if (
+            validValues.length === 0
+        ) {
 
-            }
-        );
+            return "-";
+
+        }
 
 
-        // =================================================
-        // SEPARATOR + AVERAGE ROW
-        // =================================================
+        const total =
+            validValues.reduce(
+                (
+                    sum,
+                    value
+                ) =>
+                    sum + value,
 
-        const averageRow =
-            worksheet.addRow(
-                prepared.averageRow
+                0
             );
 
 
-        averageRow.eachCell(
+        return Number(
             (
-                cell,
-                index
-            ) => {
+                total /
+                validValues.length
+            ).toFixed(2)
+        );
 
-                cell.font = {
-
-                    name:
-                        "Arial",
-
-                    size:
-                        10,
-
-                    bold:
-                        true
-
-                };
+    };
 
 
-                cell.alignment = {
+// ---------------------------------------------------------
+// YEARLY AVERAGE
+// ---------------------------------------------------------
 
-                    horizontal:
-                        index === 1
-                            ? "left"
-                            : "center",
-
-                    vertical:
-                        "middle"
-
-                };
+let averageRow;
 
 
-                cell.border = {
+if (
+    period === "YEARLY"
+) {
 
-                    top: {
+    averageRow = [
 
-                        style:
-                            "medium"
+        "Average",
 
-                    },
+        calculateColumnAverage(
+            (report.departments || [])
+                .map(
+                    department =>
+                        department.Q1
+                )
+        ),
 
-                    bottom: {
+        calculateColumnAverage(
+            (report.departments || [])
+                .map(
+                    department =>
+                        department.Q2
+                )
+        ),
 
-                        style:
-                            "medium"
+        calculateColumnAverage(
+            (report.departments || [])
+                .map(
+                    department =>
+                        department.Q3
+                )
+        ),
 
-                    },
+        calculateColumnAverage(
+            (report.departments || [])
+                .map(
+                    department =>
+                        department.Q4
+                )
+        ),
 
-                    left: {
+        calculateColumnAverage(
+            (report.departments || [])
+                .map(
+                    department =>
+                        department.yearly_average
+                )
+        )
 
-                        style:
-                            "thin"
+    ];
 
-                    },
-
-                    right: {
-
-                        style:
-                            "thin"
-
-                    }
-
-                };
+}
 
 
-                if (
-                    typeof cell.value ===
-                    "number"
-                ) {
+// ---------------------------------------------------------
+// QUARTERLY AVERAGE
+// ---------------------------------------------------------
 
-                    cell.numFmt =
-                        "0.00";
+else {
+
+    averageRow = [
+
+        "Average",
+
+        calculateColumnAverage(
+
+            (report.departments || [])
+                .map(
+                    department =>
+                        department[period]
+                )
+
+        )
+
+    ];
+
+}
+
+
+// ---------------------------------------------------------
+// ADD AVERAGE ROW
+// ---------------------------------------------------------
+
+const averageExcelRow =
+    worksheet.addRow(
+        averageRow
+    );
+
+
+averageExcelRow.height =
+    26;
+
+
+// ---------------------------------------------------------
+// AVERAGE ROW STYLE
+// ---------------------------------------------------------
+
+averageExcelRow.eachCell(
+    (
+        cell,
+        columnNumber
+    ) => {
+
+        cell.font = {
+
+            name: "Arial",
+
+            size: 11,
+
+            bold: true,
+
+            color: {
+
+                argb:
+                    "1F355E"
+
+            }
+
+        };
+
+
+        cell.alignment = {
+
+            horizontal:
+                columnNumber === 1
+                    ? "left"
+                    : "center",
+
+            vertical:
+                "center"
+
+        };
+
+
+        cell.fill = {
+
+            type:
+                "pattern",
+
+            pattern:
+                "solid",
+
+            fgColor: {
+
+                argb:
+                    "EAF1FB"
+
+            }
+
+        };
+
+
+        cell.border = {
+
+            top: {
+
+                style:
+                    "medium",
+
+                color: {
+
+                    argb:
+                        "9EB6D8"
+
+                }
+
+            },
+
+            bottom: {
+
+                style:
+                    "medium",
+
+                color: {
+
+                    argb:
+                        "9EB6D8"
+
+                }
+
+            },
+
+            left: {
+
+                style:
+                    "thin",
+
+                color: {
+
+                    argb:
+                        "C9D5E5"
+
+                }
+
+            },
+
+            right: {
+
+                style:
+                    "thin",
+
+                color: {
+
+                    argb:
+                        "C9D5E5"
 
                 }
 
             }
-        );
+
+        };
 
 
-        averageRow.height =
-            24;
-
-
-        // =================================================
-        // COLUMN WIDTHS
-        // =================================================
+        // Number format
 
         if (
-            prepared.headers.length === 6
+            columnNumber > 1 &&
+            typeof cell.value === "number"
         ) {
 
-            worksheet.columns = [
-
-                {
-                    width:
-                        30
-                },
-
-                {
-                    width:
-                        14
-                },
-
-                {
-                    width:
-                        14
-                },
-
-                {
-                    width:
-                        14
-                },
-
-                {
-                    width:
-                        14
-                },
-
-                {
-                    width:
-                        20
-                }
-
-            ];
+            cell.numFmt =
+                "0.00";
 
         }
 
-        else if (
-            prepared.headers.length === 2
-        ) {
+    }
+);
 
-            worksheet.columns = [
-
-                {
-                    width:
-                        35
-                },
-
-                {
-                    width:
-                        20
-                }
-
-            ];
-
-        }
-
-        else {
-
-            worksheet.columns =
-                prepared.headers.map(
-                    (
-                        header,
-                        index
-                    ) => ({
-
-                        width:
-                            index === 0
-                                ? 30
-                                : 18
-
-                    })
-                );
-
-        }
-
-
-        // =================================================
-        // FREEZE HEADER
-        // =================================================
+        // -----------------------------------------------------
+        // FREEZE
+        // -----------------------------------------------------
 
         worksheet.views = [
 
             {
-
-                state:
-                    "frozen",
-
-                ySplit:
-                    5
-
+                state: "frozen",
+                ySplit: 8
             }
 
         ];
 
 
-        // =================================================
-        // PRINT AREA
-        // =================================================
+        // -----------------------------------------------------
+        // COLUMN WIDTH
+        // -----------------------------------------------------
 
-        const lastRow =
-            worksheet.lastRow?.number || 1;
+        worksheet.getColumn(1).width =
+            32;
 
 
-        const lastColumnLetter =
-            this.getExcelColumnLetter(
-                columnCount
+        if (
+            period === "YEARLY"
+        ) {
+
+            worksheet.getColumn(2).width =
+                14;
+
+            worksheet.getColumn(3).width =
+                14;
+
+            worksheet.getColumn(4).width =
+                14;
+
+            worksheet.getColumn(5).width =
+                14;
+
+            worksheet.getColumn(6).width =
+                18;
+
+        } else {
+
+            worksheet.getColumn(2).width =
+                18;
+
+        }
+
+
+        // -----------------------------------------------------
+        // FOOTER
+        // -----------------------------------------------------
+
+        const footerRow =
+            worksheet.lastRow.number + 2;
+
+        worksheet.addRow([]);
+
+        worksheet.mergeCells(
+            footerRow,
+            1,
+            footerRow,
+            totalColumns
+        );
+
+        const footerCell =
+            worksheet.getCell(
+                footerRow,
+                1
             );
 
+        footerCell.value =
+            "User Satisfaction Index (USI)";
 
-        worksheet.pageSetup.printArea =
-            `A1:${lastColumnLetter}${lastRow}`;
+        footerCell.font = {
+            italic: true,
+            size: 9,
+            color: {
+                argb: "65758B"
+            }
+        };
 
-
-        // =================================================
-        // FOOTER
-        // =================================================
-
-        worksheet.headerFooter.oddFooter =
-            "User Satisfaction Index | Page &P of &N";
-
-
-        // =================================================
-        // RETURN BUFFER
-        // =================================================
-
-        return await workbook.xlsx.writeBuffer();
+        footerCell.alignment = {
+            horizontal: "left"
+        };
 
     }
 
 
+    // =========================================================
+    // SPECIAL REPORT
+    // =========================================================
+
+    else if (
+        report.report_type === "admin_special" ||
+        report.report_type === "hod_special"
+    ) {
+
+        const specials =
+            report.special_surveys || [];
+
+
+        const headers = [
+
+            "Department",
+
+            ...specials.map(
+                special =>
+                    special.label
+            )
+
+        ];
+
+
+        const totalColumns =
+            headers.length;
+
+
+        // -----------------------------------------------------
+        // TITLE
+        // -----------------------------------------------------
+
+        const reportTitle =
+            report.report_type === "hod_special"
+                ? "HOD SPECIAL REPORT"
+                : "ADMIN SPECIAL REPORT";
+
+
+        addCompanyHeader(
+            reportTitle,
+            totalColumns
+        );
+
+
+        // -----------------------------------------------------
+        // FINANCIAL YEAR
+        // -----------------------------------------------------
+
+        worksheet.addRow([
+
+            `Financial Year: ${report.financial_year}`
+
+        ]);
+
+        worksheet.mergeCells(
+            5,
+            1,
+            5,
+            totalColumns
+        );
+
+
+        const financialCell =
+            worksheet.getCell(5, 1);
+
+        financialCell.font = {
+            size: 10,
+            color: {
+                argb: "65758B"
+            }
+        };
+
+        financialCell.alignment = {
+            horizontal: "left",
+            vertical: "center"
+        };
+
+        worksheet.getRow(5).height = 22;
+
+
+        // -----------------------------------------------------
+        // GENERATED ON
+        // -----------------------------------------------------
+
+        worksheet.addRow([
+            `Generated On: ${generatedOn}`
+        ]);
+
+        worksheet.mergeCells(
+            6,
+            1,
+            6,
+            totalColumns
+        );
+
+        const generatedCell =
+            worksheet.getCell(6, 1);
+
+        generatedCell.font = {
+            size: 9,
+            color: {
+                argb: "65758B"
+            }
+        };
+
+        generatedCell.alignment = {
+            horizontal: "right",
+            vertical: "center"
+        };
+
+        worksheet.getRow(6).height = 20;
+
+
+        // -----------------------------------------------------
+        // SPACE
+        // -----------------------------------------------------
+
+        worksheet.addRow([]);
+
+
+        // -----------------------------------------------------
+        // TABLE HEADER
+        // -----------------------------------------------------
+
+        worksheet.addRow(headers);
+
+        const headerRow =
+            worksheet.getRow(8);
+
+        styleHeaderRow(
+            headerRow
+        );
+
+
+        // -----------------------------------------------------
+        // DATA
+        // -----------------------------------------------------
+
+        for (
+            const department
+            of report.departments || []
+        ) {
+
+            const row = [
+
+                department.department_name
+
+            ];
+
+
+            for (
+                const special
+                of specials
+            ) {
+
+                row.push(
+
+                    department[
+                        special.label
+                    ] ?? "-"
+
+                );
+
+            }
+
+
+            const excelRow =
+                worksheet.addRow(row);
+
+
+            styleDataRow(
+                excelRow
+            );
+
+        }
+
+
+        // -----------------------------------------------------
+        // COLUMN WIDTH
+        // -----------------------------------------------------
+
+        worksheet.getColumn(1).width =
+            32;
+
+
+        for (
+            let i = 2;
+            i <= totalColumns;
+            i++
+        ) {
+
+            worksheet.getColumn(i).width =
+                20;
+
+        }
+
+
+        // -----------------------------------------------------
+        // FREEZE
+        // -----------------------------------------------------
+
+        worksheet.views = [
+
+            {
+                state: "frozen",
+                ySplit: 8
+            }
+
+        ];
+
+
+        // -----------------------------------------------------
+        // FOOTER
+        // -----------------------------------------------------
+
+        const footerRow =
+            worksheet.lastRow.number + 2;
+
+        worksheet.addRow([]);
+
+        worksheet.mergeCells(
+            footerRow,
+            1,
+            footerRow,
+            totalColumns
+        );
+
+        const footerCell =
+            worksheet.getCell(
+                footerRow,
+                1
+            );
+
+        footerCell.value =
+            "User Satisfaction Index (USI)";
+
+        footerCell.font = {
+            italic: true,
+            size: 9,
+            color: {
+                argb: "65758B"
+            }
+        };
+
+        footerCell.alignment = {
+            horizontal: "left"
+        };
+
+    }
+
+
+    // =========================================================
+    // UNSUPPORTED REPORT
+    // =========================================================
+
+    else {
+
+        throw new ApiError(
+            400,
+            `Unsupported report type: ${report.report_type}`
+        );
+
+    }
+
+
+    // =========================================================
+    // PAGE SETUP
+    // =========================================================
+
+    worksheet.pageSetup = {
+
+        orientation: "landscape",
+
+        fitToPage: true,
+
+        fitToWidth: 1,
+
+        fitToHeight: 0,
+
+        paperSize:
+            worksheet.PAPERSIZE_A4
+
+    };
+
+
+    worksheet.pageSetup.margins = {
+
+        left: 0.3,
+
+        right: 0.3,
+
+        top: 0.5,
+
+        bottom: 0.5,
+
+        header: 0.2,
+
+        footer: 0.2
+
+    };
+
+
+    // =========================================================
+    // PRINT OPTIONS
+    // =========================================================
+
+    worksheet.pageSetup.horizontalCentered =
+        true;
+
+
+    worksheet.printOptions = {
+
+        horizontalCentered: true,
+
+        verticalCentered: false
+
+    };
+
+
+    // =========================================================
+    // RETURN BUFFER
+    // =========================================================
+
+    return await workbook.xlsx.writeBuffer();
+
+}
     // =====================================================
     // EXCEL COLUMN LETTER
     // =====================================================
@@ -2349,632 +2983,1302 @@ class HodReportExportService {
     // Department | Q1
     // Average    | 90.00
     // =====================================================
+// =====================================================
+// GENERATE PDF
+//
+// PROFESSIONAL HOD REPORT
+//
+// Structure:
+// Company Header
+// Location
+// Report Title
+// Financial Year + Period
+// Report Summary
+// Department-wise USI Performance
+// Full Grid Table
+// Average Row
+// Footer
+// =====================================================
 
-    async generatePdf(
-        report
-    ) {
+async generatePdf(
+    report
+) {
 
-        if (
-            !report
-        ) {
+    const hodDepartment =
+        await this.getHodDepartment(
+            report?._user || {}
+        );
 
-            throw new ApiError(
-                400,
-                "Report data is required."
+
+    const prepared =
+        report?.report_type === "hod_special"
+
+            ? this.prepareSpecialExport(
+                report,
+                hodDepartment
+            )
+
+            : this.prepareGeneralExport(
+                report,
+                hodDepartment
             );
 
-        }
+
+    return new Promise(
+        (
+            resolve,
+            reject
+        ) => {
+
+            // =================================================
+            // PDF DOCUMENT
+            // =================================================
+
+            const document =
+                new PDFDocument({
+
+                    size:
+                        "A4",
+
+                    layout:
+                        prepared.headers.length > 5
+                            ? "landscape"
+                            : "portrait",
+
+                    margins: {
+
+                        top:
+                            36,
+
+                        bottom:
+                            42,
+
+                        left:
+                            36,
+
+                        right:
+                            36
+
+                    },
+
+                    bufferPages:
+                        true
+
+                });
 
 
-        const hodDepartment =
-            await this.getHodDepartment(
-                report?._user || {}
+            const chunks = [];
+
+
+            document.on(
+                "data",
+                chunk =>
+                    chunks.push(
+                        chunk
+                    )
             );
 
 
-        const prepared =
-            report?.report_type === "hod_special"
-
-                ? this.prepareSpecialExport(
-                    report,
-                    hodDepartment
-                )
-
-                : this.prepareGeneralExport(
-                    report,
-                    hodDepartment
-                );
+            document.on(
+                "end",
+                () =>
+                    resolve(
+                        Buffer.concat(
+                            chunks
+                        )
+                    )
+            );
 
 
-        return new Promise(
-            (
-                resolve,
+            document.on(
+                "error",
                 reject
-            ) => {
-
-                const isYearly =
-                    prepared.headers.length === 6;
+            );
 
 
-                const doc =
-                    new PDFDocument({
+            // =================================================
+            // PAGE INFORMATION
+            // =================================================
 
-                        size:
-                            "A4",
-
-                        layout:
-                            isYearly
-                                ? "landscape"
-                                : "portrait",
-
-                        margins: {
-
-                            top:
-                                40,
-
-                            bottom:
-                                40,
-
-                            left:
-                                36,
-
-                            right:
-                                36
-
-                        },
-
-                        bufferPages:
-                            true
-
-                    });
+            const pageWidth =
+                document.page.width;
 
 
-                const chunks = [];
+            const pageHeight =
+                document.page.height;
 
 
-                doc.on(
-                    "data",
-                    chunk =>
-                        chunks.push(
-                            chunk
+            const left =
+                document.page.margins.left;
+
+
+            const right =
+                document.page.margins.right;
+
+
+            const usableWidth =
+                pageWidth -
+                left -
+                right;
+
+
+            const isGeneral =
+                report?.report_type !==
+                "hod_special";
+
+
+            const financialYear =
+                prepared.financialYear ||
+                "";
+
+
+            const reportPeriod =
+                prepared.period ||
+                "YEARLY";
+
+
+            const headers =
+                prepared.headers || [];
+
+
+            // =================================================
+            // COLUMN WIDTHS
+            // =================================================
+
+            const columnCount =
+                headers.length;
+
+
+            let firstColumnWidth;
+
+
+            if (
+                columnCount === 6
+            ) {
+
+                firstColumnWidth =
+                    usableWidth *
+                    0.31;
+
+            }
+
+            else if (
+                columnCount === 3
+            ) {
+
+                firstColumnWidth =
+                    usableWidth *
+                    0.42;
+
+            }
+
+            else {
+
+                firstColumnWidth =
+                    usableWidth *
+                    0.36;
+
+            }
+
+
+            const remainingWidth =
+                usableWidth -
+                firstColumnWidth;
+
+
+            const otherColumnCount =
+                Math.max(
+                    columnCount - 1,
+                    1
+                );
+
+
+            const columnWidths = [
+
+                firstColumnWidth,
+
+                ...Array(
+                    otherColumnCount
+                )
+                    .fill(
+                        remainingWidth /
+                        otherColumnCount
+                    )
+
+            ];
+
+
+            // =================================================
+            // COLORS
+            // =================================================
+
+            const COLORS = {
+
+                navy:
+                    "#172d52",
+
+                blue:
+                    "#1769d1",
+
+                blueLight:
+                    "#edf4ff",
+
+                text:
+                    "#202b3c",
+
+                muted:
+                    "#64748b",
+
+                border:
+                    "#cbd5e1",
+
+                lightBorder:
+                    "#dce4ee",
+
+                grayBg:
+                    "#f5f7fa",
+
+                white:
+                    "#ffffff"
+
+            };
+
+
+            // =================================================
+            // DIMENSIONS
+            // =================================================
+
+            const headerHeight =
+                32;
+
+
+            const rowHeight =
+                27;
+
+
+            const summaryHeight =
+                65;
+
+
+            let y =
+                36;
+
+
+            // =================================================
+            // SAFE VALUE
+            // =================================================
+
+            const safeValue =
+                value => {
+
+                    if (
+                        value === null ||
+                        value === undefined ||
+                        value === ""
+                    ) {
+
+                        return "N/A";
+
+                    }
+
+                    return String(
+                        value
+                    );
+
+                };
+
+
+            // =================================================
+            // DRAW COMPANY HEADER
+            // =================================================
+
+            const drawCompanyHeader =
+                () => {
+
+                    // -----------------------------------------
+                    // COMPANY NAME
+                    // -----------------------------------------
+
+                    document
+                        .font(
+                            "Helvetica-Bold"
                         )
-                );
-
-
-                doc.on(
-                    "end",
-                    () =>
-                        resolve(
-                            Buffer.concat(
-                                chunks
-                            )
+                        .fontSize(
+                            16
                         )
-                );
+                        .fillColor(
+                            COLORS.navy
+                        )
+                        .text(
+
+                            "RAJARAMBAPU PATIL SAHAKARI SAKHAR KARKHANA LTD.",
+
+                            left,
+                            y,
+
+                            {
+
+                                width:
+                                    usableWidth,
+
+                                align:
+                                    "center"
+
+                            }
+
+                        );
 
 
-                doc.on(
-                    "error",
-                    reject
-                );
+                    y +=
+                        22;
 
 
-                const pageWidth =
-                    doc.page.width;
+                    // -----------------------------------------
+                    // LOCATION
+                    // -----------------------------------------
+
+                    document
+                        .font(
+                            "Helvetica-Bold"
+                        )
+                        .fontSize(
+                            10
+                        )
+                        .fillColor(
+                            COLORS.muted
+                        )
+                        .text(
+
+                            "RAJARAMNAGAR",
+
+                            left,
+                            y,
+
+                            {
+
+                                width:
+                                    usableWidth,
+
+                                align:
+                                    "center"
+
+                            }
+
+                        );
 
 
-                const pageHeight =
-                    doc.page.height;
+                    y +=
+                        22;
 
 
-                const left =
-                    doc.page.margins.left;
+                    // -----------------------------------------
+                    // BLUE LINE
+                    // -----------------------------------------
+
+                    document
+                        .moveTo(
+                            left,
+                            y
+                        )
+                        .lineTo(
+                            left +
+                            usableWidth,
+                            y
+                        )
+                        .lineWidth(
+                            1.4
+                        )
+                        .strokeColor(
+                            COLORS.blue
+                        )
+                        .stroke();
 
 
-                const right =
-                    doc.page.margins.right;
+                    y +=
+                        14;
+
+                };
 
 
-                const usableWidth =
-                    pageWidth -
-                    left -
-                    right;
+            // =================================================
+            // DRAW REPORT TITLE
+            // =================================================
+
+            const drawReportTitle =
+                () => {
+
+                    document
+                        .font(
+                            "Helvetica-Bold"
+                        )
+                        .fontSize(
+                            14
+                        )
+                        .fillColor(
+                            COLORS.navy
+                        )
+                        .text(
+
+                            prepared.title,
+
+                            left,
+                            y,
+
+                            {
+
+                                width:
+                                    usableWidth,
+
+                                align:
+                                    "center"
+
+                            }
+
+                        );
 
 
-                // =================================================
-                // COLUMN WIDTHS
-                // =================================================
-
-                let columnWidths;
+                    y +=
+                        26;
 
 
-                if (
-                    isYearly
-                ) {
+                    // -----------------------------------------
+                    // FINANCIAL YEAR
+                    // -----------------------------------------
 
-                    const firstWidth =
-                        usableWidth * 0.30;
+                    document
+                        .font(
+                            "Helvetica"
+                        )
+                        .fontSize(
+                            9
+                        )
+                        .fillColor(
+                            COLORS.muted
+                        )
+                        .text(
+
+                            `Financial Year : ${financialYear}`,
+
+                            left,
+                            y
+
+                        );
 
 
-                    const otherWidth =
-                        (
+                    // -----------------------------------------
+                    // PERIOD
+                    // -----------------------------------------
+
+                    document
+                        .text(
+
+                            `Period : ${reportPeriod}`,
+
+                            left +
                             usableWidth -
-                            firstWidth
-                        ) / 5;
+                            100,
+
+                            y,
+
+                            {
+
+                                width:
+                                    100,
+
+                                align:
+                                    "right"
+
+                            }
+
+                        );
 
 
-                    columnWidths = [
+                    y +=
+                        18;
 
-                        firstWidth,
 
-                        otherWidth,
+                    // -----------------------------------------
+                    // SEPARATOR
+                    // -----------------------------------------
 
-                        otherWidth,
+                    document
+                        .moveTo(
+                            left,
+                            y
+                        )
+                        .lineTo(
+                            left +
+                            usableWidth,
+                            y
+                        )
+                        .lineWidth(
+                            0.8
+                        )
+                        .strokeColor(
+                            COLORS.border
+                        )
+                        .stroke();
 
-                        otherWidth,
 
-                        otherWidth,
+                    y +=
+                        16;
 
-                        otherWidth
+                };
 
-                    ];
+
+            // =================================================
+            // REPORT SUMMARY
+            // =================================================
+
+           // =================================================
+// REPORT SUMMARY
+// =================================================
+
+const drawSummary =
+    () => {
+
+        // -----------------------------------------
+        // SUMMARY HEIGHT
+        // -----------------------------------------
+
+        const summaryHeight = 62;
+
+
+        // -----------------------------------------
+        // BACKGROUND
+        // -----------------------------------------
+
+        document
+            .save()
+            .roundedRect(
+                left,
+                y,
+                usableWidth,
+                summaryHeight,
+                6
+            )
+            .fillColor(
+                COLORS.grayBg
+            )
+            .fill()
+            .lineWidth(
+                0.8
+            )
+            .strokeColor(
+                COLORS.lightBorder
+            )
+            .stroke()
+            .restore();
+
+
+        // -----------------------------------------
+        // TITLE
+        // -----------------------------------------
+
+        document
+            .font(
+                "Helvetica-Bold"
+            )
+            .fontSize(
+                9
+            )
+            .fillColor(
+                COLORS.blue
+            )
+            .text(
+
+                "REPORT SUMMARY",
+
+                left + 12,
+                y + 9
+
+            );
+
+
+        // -----------------------------------------
+        // SUMMARY CONTENT POSITION
+        // -----------------------------------------
+
+        const summaryY =
+            y + 31;
+
+
+        // -----------------------------------------
+        // FOUR EQUAL COLUMNS
+        // -----------------------------------------
+
+        const gap = 8;
+
+        const summaryColumnWidth =
+            (
+                usableWidth -
+                24 -
+                gap * 3
+            ) / 4;
+
+
+        const col1 =
+            left + 12;
+
+        const col2 =
+            col1 +
+            summaryColumnWidth +
+            gap;
+
+        const col3 =
+            col2 +
+            summaryColumnWidth +
+            gap;
+
+        const col4 =
+            col3 +
+            summaryColumnWidth +
+            gap;
+
+
+        // -----------------------------------------
+        // REPORT TYPE
+        // -----------------------------------------
+
+        document
+            .font(
+                "Helvetica"
+            )
+            .fontSize(
+                8.5
+            )
+            .fillColor(
+                COLORS.text
+            )
+            .text(
+
+                `Report Type : ${
+                    isGeneral
+                        ? "General"
+                        : "Special"
+                }`,
+
+                col1,
+                summaryY,
+
+                {
+                    width:
+                        summaryColumnWidth,
+
+                    align:
+                        "left",
+
+                    lineBreak:
+                        false
 
                 }
 
-                else {
+            );
 
-                    columnWidths = [
 
-                        usableWidth * 0.60,
+        // -----------------------------------------
+        // FINANCIAL YEAR
+        // -----------------------------------------
 
-                        usableWidth * 0.40
+        document
+            .font(
+                "Helvetica"
+            )
+            .fontSize(
+                8.5
+            )
+            .fillColor(
+                COLORS.text
+            )
+            .text(
 
-                    ];
+                `Financial Year : ${financialYear}`,
+
+                col2,
+                summaryY,
+
+                {
+                    width:
+                        summaryColumnWidth,
+
+                    align:
+                        "left",
+
+                    lineBreak:
+                        false
 
                 }
 
+            );
 
-                const titleHeight =
-                    25;
 
+        // -----------------------------------------
+        // PERIOD
+        // -----------------------------------------
 
-                const metaHeight =
-                    18;
+        document
+            .font(
+                "Helvetica"
+            )
+            .fontSize(
+                8.5
+            )
+            .fillColor(
+                COLORS.text
+            )
+            .text(
 
+                `Period : ${reportPeriod}`,
 
-                const headerHeight =
-                    30;
+                col3,
+                summaryY,
 
+                {
+                    width:
+                        summaryColumnWidth,
 
-                const rowHeight =
-                    27;
+                    align:
+                        "left",
 
+                    lineBreak:
+                        false
 
-                let y =
-                    38;
+                }
 
+            );
 
-                // =================================================
-                // TITLE
-                // =================================================
 
-                const drawTitle =
-                    () => {
+        // -----------------------------------------
+        // GENERATED DATE
+        // -----------------------------------------
 
-                        doc
-                            .font(
-                                "Helvetica-Bold"
-                            )
-                            .fontSize(
-                                16
-                            )
-                            .fillColor(
-                                "#172033"
-                            )
-                            .text(
+        document
+            .font(
+                "Helvetica"
+            )
+            .fontSize(
+                8.5
+            )
+            .fillColor(
+                COLORS.text
+            )
+            .text(
 
-                                prepared.title,
+                `Generated On : ${
+                    new Date()
+                        .toLocaleDateString(
+                            "en-GB"
+                        )
+                }`,
 
-                                left,
+                col4,
+                summaryY,
 
-                                y,
+                {
+                    width:
+                        summaryColumnWidth,
 
-                                {
+                    align:
+                        "left",
 
-                                    width:
-                                        usableWidth,
+                    lineBreak:
+                        false
 
-                                    align:
-                                        "center"
+                }
 
-                                }
+            );
 
-                            );
 
+        // -----------------------------------------
+        // MOVE Y
+        // -----------------------------------------
 
-                        y +=
-                            titleHeight;
+        y +=
+            summaryHeight +
+            18;
 
+    };
 
-                        doc
-                            .font(
-                                "Helvetica-Bold"
-                            )
-                            .fontSize(
-                                9.5
-                            )
-                            .fillColor(
-                                "#3f4d63"
-                            )
-                            .text(
+            // =================================================
+            // SECTION TITLE
+            // =================================================
 
-                                `Financial Year: ${prepared.financialYear}`,
+            const drawSectionTitle =
+                () => {
 
-                                left,
+                    document
+                        .font(
+                            "Helvetica-Bold"
+                        )
+                        .fontSize(
+                            11
+                        )
+                        .fillColor(
+                            COLORS.navy
+                        )
+                        .text(
 
-                                y,
+                            "DEPARTMENT-WISE USI PERFORMANCE",
 
-                                {
+                            left,
+                            y
 
-                                    width:
-                                        usableWidth,
+                        );
 
-                                    align:
-                                        "left"
 
-                                }
+                    y +=
+                        16;
 
-                            );
 
+                    document
+                        .font(
+                            "Helvetica"
+                        )
+                        .fontSize(
+                            8
+                        )
+                        .fillColor(
+                            COLORS.muted
+                        )
+                        .text(
 
-                        y +=
-                            metaHeight;
+                            "User Satisfaction Index performance across departments and evaluation periods.",
 
+                            left,
+                            y
 
-                        doc
-                            .font(
-                                "Helvetica"
-                            )
-                            .fontSize(
-                                9
-                            )
-                            .fillColor(
-                                "#56647a"
-                            )
-                            .text(
+                        );
 
-                                `Period: ${prepared.period}`,
 
-                                left,
+                    y +=
+                        20;
 
-                                y,
+                };
 
-                                {
 
-                                    width:
-                                        usableWidth,
+            // =================================================
+            // CELL TEXT
+            // =================================================
 
-                                    align:
-                                        "left"
+            const drawCellText =
+                (
+                    value,
+                    x,
+                    top,
+                    width,
+                    height,
+                    bold = false,
+                    align = "center"
+                ) => {
 
-                                }
+                    document
+                        .font(
 
-                            );
+                            bold
+                                ? "Helvetica-Bold"
+                                : "Helvetica"
 
+                        )
+                        .fontSize(
+                            8.5
+                        )
+                        .fillColor(
+                            COLORS.text
+                        )
+                        .text(
 
-                        y +=
-                            22;
+                            safeValue(
+                                value
+                            ),
 
-                    };
+                            x + 7,
+                            top + 8,
 
+                            {
 
-                // =================================================
-                // CELL TEXT
-                // =================================================
+                                width:
+                                    width - 14,
 
-                const drawCellText =
-                    (
-                        value,
-                        x,
-                        top,
-                        width,
-                        height,
-                        bold = false
-                    ) => {
+                                height:
+                                    height - 10,
 
-                        const text =
-                            value === null ||
-                            value === undefined ||
-                            value === ""
-                                ? "-"
-                                : String(
-                                    value
-                                );
+                                align,
 
+                                ellipsis:
+                                    true
 
-                        doc
-                            .font(
-                                bold
-                                    ? "Helvetica-Bold"
-                                    : "Helvetica"
-                            )
-                            .fontSize(
-                                9
-                            )
-                            .fillColor(
-                                "#18263d"
-                            )
-                            .text(
+                            }
 
-                                text,
+                        );
 
-                                x + 6,
+                };
 
-                                top + 8,
 
-                                {
+            // =================================================
+            // TABLE HEADER
+            // =================================================
 
-                                    width:
-                                        width - 12,
+            const drawTableHeader =
+                () => {
 
-                                    height:
-                                        height - 8,
+                    let x =
+                        left;
 
-                                    align:
-                                        x === left
-                                            ? "left"
-                                            : "center"
 
-                                }
+                    headers.forEach(
+                        (
+                            header,
+                            index
+                        ) => {
 
-                            );
+                            // ---------------------------------
+                            // HEADER BACKGROUND
+                            // ---------------------------------
 
-                    };
+                            document
+                                .rect(
+                                    x,
+                                    y,
+                                    columnWidths[index],
+                                    headerHeight
+                                )
+                                .fillColor(
+                                    COLORS.navy
+                                )
+                                .fill();
 
 
-                // =================================================
-                // HEADER
-                // =================================================
+                            // ---------------------------------
+                            // HEADER BORDER
+                            // ---------------------------------
 
-                const drawHeader =
-                    () => {
+                            document
+                                .rect(
+                                    x,
+                                    y,
+                                    columnWidths[index],
+                                    headerHeight
+                                )
+                                .lineWidth(
+                                    0.8
+                                )
+                                .strokeColor(
+                                    COLORS.white
+                                )
+                                .stroke();
 
-                        let x =
-                            left;
 
+                            // ---------------------------------
+                            // HEADER TEXT
+                            // ---------------------------------
 
-                        prepared.headers.forEach(
-                            (
+                            drawCellText(
+
                                 header,
-                                index
-                            ) => {
 
-                                doc
+                                x,
+                                y,
+
+                                columnWidths[index],
+
+                                headerHeight,
+
+                                true,
+
+                                index === 0
+                                    ? "left"
+                                    : "center"
+
+                            );
+
+
+                            x +=
+                                columnWidths[index];
+
+                        }
+                    );
+
+
+                    y +=
+                        headerHeight;
+
+                };
+
+
+            // =================================================
+            // DATA ROW
+            // =================================================
+
+            const drawDataRow =
+                (
+                    row,
+                    bold = false,
+                    average = false
+                ) => {
+
+                    // -----------------------------------------
+                    // PAGE BREAK
+                    // -----------------------------------------
+
+                    if (
+                        y +
+                        rowHeight >
+                        pageHeight -
+                        document.page.margins.bottom
+                    ) {
+
+                        document.addPage();
+
+
+                        y =
+                            36;
+
+
+                        drawCompanyHeader();
+
+                        drawReportTitle();
+
+                        drawTableHeader();
+
+                    }
+
+
+                    let x =
+                        left;
+
+
+                    row.forEach(
+                        (
+                            value,
+                            index
+                        ) => {
+
+                            // ---------------------------------
+                            // CELL BACKGROUND
+                            // ---------------------------------
+
+                            if (
+                                average
+                            ) {
+
+                                document
                                     .rect(
-
                                         x,
-
                                         y,
-
                                         columnWidths[index],
-
-                                        headerHeight
-
+                                        rowHeight
                                     )
                                     .fillColor(
-                                        "#eef3f8"
+                                        COLORS.blueLight
                                     )
                                     .fill();
 
-
-                                doc
-                                    .rect(
-
-                                        x,
-
-                                        y,
-
-                                        columnWidths[index],
-
-                                        headerHeight
-
-                                    )
-                                    .lineWidth(
-                                        0.8
-                                    )
-                                    .strokeColor(
-                                        "#aeb9c7"
-                                    )
-                                    .stroke();
-
-
-                                drawCellText(
-
-                                    header,
-
-                                    x,
-
-                                    y,
-
-                                    columnWidths[index],
-
-                                    headerHeight,
-
-                                    true
-
-                                );
-
-
-                                x +=
-                                    columnWidths[index];
-
                             }
-                        );
 
 
-                        y +=
-                            headerHeight;
+                            // ---------------------------------
+                            // FULL GRID BORDER
+                            //
+                            // Vertical + Horizontal
+                            // ---------------------------------
 
-                    };
-
-
-                // =================================================
-                // DATA ROW
-                // =================================================
-
-                const drawDataRow =
-                    (
-                        row,
-                        bold = false,
-                        separator = false
-                    ) => {
-
-                        if (
-                            y +
-                            rowHeight >
-                            pageHeight -
-                            doc.page.margins.bottom
-                        ) {
-
-                            doc.addPage();
-
-
-                            y =
-                                38;
+                            document
+                                .rect(
+                                    x,
+                                    y,
+                                    columnWidths[index],
+                                    rowHeight
+                                )
+                                .lineWidth(
+                                    average
+                                        ? 1.1
+                                        : 0.6
+                                )
+                                .strokeColor(
+                                    average
+                                        ? "#9fb2c9"
+                                        : COLORS.border
+                                )
+                                .stroke();
 
 
-                            drawTitle();
+                            // ---------------------------------
+                            // CELL TEXT
+                            // ---------------------------------
 
+                            drawCellText(
 
-                            drawHeader();
-
-                        }
-
-
-                        if (
-                            separator
-                        ) {
-
-                            y +=
-                                3;
-
-                        }
-
-
-                        let x =
-                            left;
-
-
-                        row.forEach(
-                            (
                                 value,
-                                index
-                            ) => {
 
-                                doc
-                                    .rect(
+                                x,
+                                y,
 
-                                        x,
+                                columnWidths[index],
 
-                                        y,
+                                rowHeight,
 
-                                        columnWidths[index],
+                                bold,
 
-                                        rowHeight
+                                index === 0
+                                    ? "left"
+                                    : "center"
 
-                                    )
-                                    .lineWidth(
-                                        separator
-                                            ? 1.2
-                                            : 0.6
-                                    )
-                                    .strokeColor(
-                                        separator
-                                            ? "#9aa7b7"
-                                            : "#d5dde7"
-                                    )
-                                    .stroke();
+                            );
 
 
-                                drawCellText(
+                            x +=
+                                columnWidths[index];
 
-                                    value,
-
-                                    x,
-
-                                    y,
-
-                                    columnWidths[index],
-
-                                    rowHeight,
-
-                                    bold
-
-                                );
+                        }
+                    );
 
 
-                                x +=
-                                    columnWidths[index];
+                    y +=
+                        rowHeight;
+
+                };
+
+
+            // =================================================
+            // FOOTER
+            // =================================================
+
+            const drawFooter =
+                () => {
+
+                    y +=
+                        12;
+
+
+                    document
+                        .font(
+                            "Helvetica"
+                        )
+                        .fontSize(
+                            8
+                        )
+                        .fillColor(
+                            COLORS.muted
+                        )
+                        .text(
+
+                            "User Satisfaction Index (USI)",
+
+                            left,
+                            y,
+
+                            {
+
+                                width:
+                                    usableWidth,
+
+                                align:
+                                    "left"
 
                             }
+
                         );
 
-
-                        y +=
-                            rowHeight;
-
-                    };
+                };
 
 
-                // =================================================
-                // DRAW
-                // =================================================
+            // =================================================
+            // DRAW COMPLETE REPORT
+            // =================================================
 
-                drawTitle();
-
-
-                drawHeader();
+            drawCompanyHeader();
 
 
-                prepared.rows.forEach(
-                    row =>
-                        drawDataRow(
-                            row
-                        )
+            drawReportTitle();
+
+
+            drawSummary();
+
+
+            drawSectionTitle();
+
+
+            drawTableHeader();
+
+
+            // =================================================
+            // DATA
+            // =================================================
+
+            prepared.rows.forEach(
+                row => {
+
+                    drawDataRow(
+                        row
+                    );
+
+                }
+            );
+
+
+            // =================================================
+            // AVERAGE
+            // =================================================
+
+            drawDataRow(
+
+                prepared.averageRow,
+
+                true,
+
+                true
+
+            );
+
+
+            // =================================================
+            // FOOTER
+            // =================================================
+
+            drawFooter();
+
+
+            // =================================================
+            // PAGE NUMBERS
+            // =================================================
+
+            const pageRange =
+                document.bufferedPageRange();
+
+
+            for (
+                let i = 0;
+                i < pageRange.count;
+                i++
+            ) {
+
+                document.switchToPage(
+                    pageRange.start +
+                    i
                 );
 
 
-                drawDataRow(
-
-                    prepared.averageRow,
-
-                    true,
-
-                    true
-
-                );
-
-
-                y +=
-                    12;
-
-
-                doc
+                document
                     .font(
                         "Helvetica"
                     )
                     .fontSize(
-                        8
+                        7.5
                     )
                     .fillColor(
-                        "#7b8798"
+                        COLORS.muted
                     )
                     .text(
 
-                        "User Satisfaction Index (USI)",
+                        `Page ${
+                            i + 1
+                        } of ${
+                            pageRange.count
+                        }`,
 
                         left,
-
-                        y,
+                        pageHeight -
+                        28,
 
                         {
 
@@ -2982,19 +4286,21 @@ class HodReportExportService {
                                 usableWidth,
 
                             align:
-                                "left"
+                                "right"
 
                         }
 
                     );
 
-
-                doc.end();
-
             }
-        );
 
-    }
+
+            document.end();
+
+        }
+    );
+
+}
 
 
     // =====================================================

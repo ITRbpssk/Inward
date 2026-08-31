@@ -13,38 +13,69 @@ const dashboardController =
 // =====================================================
 
 router.get(
+
     "/target-departments",
+
     dashboardController.getTargetDepartments
+
 );
 
 
 // =====================================================
-// EVALUATION OVERVIEW
+// GENERAL EVALUATION OVERVIEW
 //
-// Example:
+// GET:
+// /dashboard/evaluations
 //
-// GET /dashboard/evaluations
-// ?targetDepartmentId=1
+// Query:
+// ?targetDepartmentId=4
 // &quarter=Q1
 // =====================================================
 
 router.get(
+
     "/evaluations",
+
     dashboardController.getEvaluationOverview
+
+);
+
+
+// =====================================================
+// SPECIAL EVALUATION OVERVIEW
+//
+// GET:
+// /dashboard/special-evaluations
+//
+// Query:
+// ?targetDepartmentId=4
+//
+// IMPORTANT:
+// NO QUARTER
+// =====================================================
+
+router.get(
+
+    "/special-evaluations",
+
+    dashboardController.getSpecialEvaluationOverview
+
 );
 
 
 // =====================================================
 // VIEW RATING
 //
-// Example:
-//
-// GET /dashboard/rating/12
+// GET:
+// /dashboard/rating/12
 // =====================================================
 
 router.get(
+
     "/rating/:feedbackId",
+
     dashboardController.getRatingDetails
+
 );
 
 

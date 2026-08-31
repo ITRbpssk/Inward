@@ -38,97 +38,141 @@ class FeedbackService {
     // Total Score / Maximum Score × 100
     // =====================================================
 
-    calculateUSI(
-        ratings,
-        activeParams
-    ) {
+   // =====================================================
+// USI CALCULATION
+//
+// Importance = 5
+// Rating = 1 to 5
+//
+// Score = Importance × Rating
+//
+// Maximum Score =
+// Active Parameters × 5 × 5
+//
+// USI =
+// Total Score / Maximum Score × 100
+//
+// IMPORTANT:
+// Supports BOTH:
+//     GENERAL parameters
+//     SPECIAL survey parameters
+// =====================================================
 
-        const IMPORTANCE = 5;
-        const MAX_RATING = 5;
+calculateUSI(
+    ratings,
+    activeParams
+) {
 
-
-        const maximumScorePerParameter =
-            IMPORTANCE * MAX_RATING;
-
-
-        const maximumTotalScore =
-            maximumScorePerParameter *
-            activeParams.length;
-
-
-        const calculatedRatings =
-            ratings.map(
-                item => {
-
-                    const rating =
-                        parseInt(
-                            item.rating,
-                            10
-                        );
-
-
-                    const score =
-                        IMPORTANCE *
-                        rating;
+    const IMPORTANCE = 5;
+    const MAX_RATING = 5;
 
 
-                    return {
-
-                        ...item,
-
-                        importance:
-                            IMPORTANCE,
-
-                        score:
-                            score
-
-                    };
-
-                }
-            );
+    const maximumScorePerParameter =
+        IMPORTANCE * MAX_RATING;
 
 
-        const totalScore =
-            calculatedRatings.reduce(
-                (
-                    sum,
-                    item
-                ) =>
-                    sum +
-                    item.score,
-
-                0
-            );
+    const maximumTotalScore =
+        maximumScorePerParameter *
+        activeParams.length;
 
 
-        const usiPercentage =
-            maximumTotalScore > 0
-                ? (
-                    totalScore /
-                    maximumTotalScore
-                ) * 100
-                : 0;
+    const calculatedRatings =
+        ratings.map(
+            item => {
+
+                const rating =
+                    parseInt(
+                        item.rating,
+                        10
+                    );
 
 
-        return {
+                const score =
+                    IMPORTANCE *
+                    rating;
 
-            ratings:
-                calculatedRatings,
 
-            total_score:
-                totalScore,
+                // =================================================
+                // PARAMETER NAME
+                //
+                // GENERAL:
+                //     item.parameter_name
+                //
+                // SPECIAL:
+                //     item.special_parameter_name
+                //
+                // Keep parameter_name as the common response field
+                // so Angular dashboard works for both.
+                // =================================================
 
-            maximum_score:
-                maximumTotalScore,
+                const parameterName =
+                    item.parameter_name ||
+                    item.special_parameter_name ||
+                    'Parameter';
 
-            usi_percentage:
-                Number(
-                    usiPercentage.toFixed(2)
-                )
 
-        };
+                return {
 
-    }
+                    ...item,
+
+                    parameter_name:
+                        parameterName,
+
+                    importance:
+                        IMPORTANCE,
+
+                    score:
+                        score
+
+                };
+
+            }
+        );
+
+
+    const totalScore =
+        calculatedRatings.reduce(
+            (
+                sum,
+                item
+            ) =>
+                sum +
+                item.score,
+
+            0
+        );
+
+
+    const usiPercentage =
+        maximumTotalScore > 0
+
+            ? (
+                totalScore /
+                maximumTotalScore
+            ) * 100
+
+            : 0;
+
+
+    return {
+
+        ratings:
+            calculatedRatings,
+
+        total_score:
+            totalScore,
+
+        maximum_score:
+            maximumTotalScore,
+
+        usi_percentage:
+            Number(
+                usiPercentage.toFixed(2)
+            )
+
+    };
+
+}
 
 
     // =====================================================

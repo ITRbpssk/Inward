@@ -23,20 +23,11 @@ class DashboardService {
 
 
     // =====================================================
-    // GET EVALUATION OVERVIEW
+    // GENERAL EVALUATION OVERVIEW
     //
     // INPUT:
     // targetDepartmentId
     // quarter
-    //
-    // OUTPUT:
-    //
-    // Evaluating Department
-    // Evaluation Target
-    // Status
-    // Submitted On
-    // Score
-    // Feedback ID
     // =====================================================
 
     async getEvaluationOverview(
@@ -97,7 +88,8 @@ class DashboardService {
 
 
         // =================================================
-        // FIND SURVEY
+        // FIND GENERAL SURVEY
+        // Target Department + Quarter
         // =================================================
 
         const survey =
@@ -135,12 +127,6 @@ class DashboardService {
 
         // =================================================
         // ADD SCORE
-        //
-        // IMPORTANT:
-        //
-        // Score comes from FeedbackService.
-        //
-        // No duplicate calculation here.
         // =================================================
 
         const evaluations =
@@ -152,9 +138,204 @@ class DashboardService {
                         let score = null;
 
 
-                        // ---------------------------------
-                        // ONLY SUBMITTED FEEDBACK GETS SCORE
-                        // ---------------------------------
+                        if (
+                            row.feedback_id &&
+                            row.feedback_status ===
+                                "submitted"
+                        ) {
+
+                            const feedback =
+                                await feedbackService
+                                    .getFeedbackById(
+
+                                        row.feedback_id,
+
+                                        null,
+
+                                        "ADMIN"
+
+                                    );
+
+
+                            score =
+                                Number(
+                                    feedback.usi_percentage
+                                );
+
+                        }
+
+
+                        return {
+
+                            mapping_id:
+                                row.mapping_id,
+
+                            survey_id:
+                                row.survey_id,
+
+                            evaluating_department_id:
+                                row.evaluating_department_id,
+
+                            evaluating_department_code:
+                                row.evaluating_department_code,
+
+                            evaluating_department_name:
+                                row.evaluating_department_name,
+
+                            evaluation_target_id:
+                                row.evaluation_target_id,
+
+                            evaluation_target_code:
+                                row.evaluation_target_code,
+
+                            evaluation_target_name:
+                                row.evaluation_target_name,
+
+                            feedback_id:
+                                row.feedback_id,
+
+                            status:
+                                row.feedback_status,
+
+                            submitted_on:
+                                row.submitted_on,
+
+                            score:
+                                score
+
+                        };
+
+                    }
+                )
+
+            );
+
+
+        return {
+
+            survey: {
+
+                survey_id:
+                    survey.survey_id,
+
+                survey_name:
+                    survey.survey_name,
+
+                survey_type:
+                    survey.survey_type,
+
+                financial_year:
+                    survey.financial_year,
+
+                quarter:
+                    survey.quarter,
+
+                start_date:
+                    survey.start_date,
+
+                end_date:
+                    survey.end_date,
+
+                status:
+                    survey.status
+
+            },
+
+            evaluations
+
+        };
+
+    }
+
+
+    // =====================================================
+    // SPECIAL EVALUATION OVERVIEW
+    //
+    // INPUT:
+    // targetDepartmentId
+    //
+    // IMPORTANT:
+    // Special Survey does NOT use quarter.
+    // =====================================================
+
+    async getSpecialEvaluationOverview(
+        targetDepartmentId
+    ) {
+
+        const targetId =
+            Number(
+                targetDepartmentId
+            );
+
+
+        // =================================================
+        // VALIDATION
+        // =================================================
+
+        if (
+            !Number.isInteger(targetId) ||
+            targetId <= 0
+        ) {
+
+            throw new ApiError(
+                400,
+                "Valid targetDepartmentId is required."
+            );
+
+        }
+
+
+        // =================================================
+        // FIND SPECIAL SURVEY
+        //
+        // Target Department only
+        // NO QUARTER
+        // =================================================
+
+        const survey =
+            await dashboardRepository
+                .findSpecialSurveyByTargetDepartment(
+                    targetId
+                );
+
+
+        if (!survey) {
+
+            return {
+
+                survey: null,
+
+                evaluations: []
+
+            };
+
+        }
+
+
+        // =================================================
+        // GET MAPPINGS + FEEDBACK
+        // =================================================
+
+        const rows =
+            await dashboardRepository
+                .getEvaluationOverview(
+                    survey.survey_id,
+                    targetId
+                );
+
+
+        // =================================================
+        // ADD SCORE
+        // =================================================
+
+        const evaluations =
+            await Promise.all(
+
+                rows.map(
+                    async row => {
+
+                        let score = null;
+
 
                         if (
                             row.feedback_id &&
@@ -268,8 +449,6 @@ class DashboardService {
 
     // =====================================================
     // VIEW RATING
-    //
-    // Uses the SAME calculation as Feedback screen.
     // =====================================================
 
     async getRatingDetails(

@@ -1101,257 +1101,702 @@ class AdminReportExportService {
     // npm install exceljs
     // =====================================================
 
-    async generateExcel(
-        report
-    ) {
+ async generateExcel(
+    report
+) {
 
-        const ExcelJS =
-            require("exceljs");
-
-
-        const workbook =
-            new ExcelJS.Workbook();
+    const ExcelJS =
+        require("exceljs");
 
 
-        const worksheet =
-            workbook.addWorksheet(
-                "Report"
-            );
+    const workbook =
+        new ExcelJS.Workbook();
 
 
-        // =================================================
-        // GENERAL
-        // =================================================
-
-        if (
-            report.report_type ===
-            "admin_general"
-        ) {
-
-            const period =
-                report.report_period;
-
-
-            let headers;
-
-
-            if (
-                period === "YEARLY"
-            ) {
-
-                headers = [
-
-                    "Department",
-                    "Q1",
-                    "Q2",
-                    "Q3",
-                    "Q4",
-                    "Yearly Average"
-
-                ];
-
-            } else {
-
-                headers = [
-
-                    "Department",
-                    period
-
-                ];
-
-            }
-
-
-            worksheet.addRow(
-                [
-                    `ADMIN GENERAL REPORT - ${report.financial_year}`
-                ]
-            );
-
-
-            worksheet.mergeCells(
-                1,
-                1,
-                1,
-                headers.length
-            );
-
-
-            worksheet.getRow(
-                1
-            ).font = {
-
-                bold: true,
-                size: 16
-
-            };
-
-
-            worksheet.addRow(
-                headers
-            );
-
-
-            worksheet.getRow(
-                2
-            ).font = {
-
-                bold: true
-
-            };
-
-
-            for (
-                const department
-                of report.departments
-            ) {
-
-                const row = [
-
-                    department.department_name
-
-                ];
-
-
-                if (
-                    period ===
-                    "YEARLY"
-                ) {
-
-                    row.push(
-                        department.Q1 ?? "-"
-                    );
-
-                    row.push(
-                        department.Q2 ?? "-"
-                    );
-
-                    row.push(
-                        department.Q3 ?? "-"
-                    );
-
-                    row.push(
-                        department.Q4 ?? "-"
-                    );
-
-                    row.push(
-                        department.yearly_average ??
-                        "-"
-                    );
-
-                } else {
-
-                    row.push(
-                        department[period] ??
-                        "-"
-                    );
-
+    const worksheet =
+        workbook.addWorksheet(
+            "Report",
+            {
+                pageSetup: {
+                    orientation: "landscape",
+                    fitToPage: true,
+                    fitToWidth: 1,
+                    fitToHeight: 0
                 }
-
-
-                worksheet.addRow(
-                    row
-                );
-
             }
+        );
 
+
+    // =====================================================
+    // COMMON STYLES
+    // =====================================================
+
+    const borderStyle = {
+
+        top: {
+            style: "thin"
+        },
+
+        left: {
+            style: "thin"
+        },
+
+        bottom: {
+            style: "thin"
+        },
+
+        right: {
+            style: "thin"
         }
 
+    };
 
-        // =================================================
-        // SPECIAL
-        // =================================================
 
-        else if (
-            report.report_type ===
-            "admin_special"
+    const titleFont = {
+
+        bold: true,
+        size: 18
+
+    };
+
+
+    const subtitleFont = {
+
+        bold: true,
+        size: 13
+
+    };
+
+
+    const sectionFont = {
+
+        bold: true,
+        size: 12
+
+    };
+
+
+    const headerFont = {
+
+        bold: true,
+        size: 11
+
+    };
+
+
+    // =====================================================
+    // REPORT TYPE
+    // =====================================================
+
+    const isGeneral =
+        report.report_type ===
+        "admin_general";
+
+
+    const isSpecial =
+        report.report_type ===
+        "admin_special";
+
+
+    if (
+        !isGeneral &&
+        !isSpecial
+    ) {
+
+        throw new ApiError(
+            400,
+            "Unsupported report type."
+        );
+
+    }
+
+
+    // =====================================================
+    // DETERMINE HEADERS
+    // =====================================================
+
+    let headers = [];
+
+
+    if (isGeneral) {
+
+        const period =
+            String(
+                report.report_period ||
+                "YEARLY"
+            )
+                .trim()
+                .toUpperCase();
+
+
+        if (
+            period ===
+            "YEARLY"
         ) {
 
-            const specials =
-                report.special_surveys || [];
-
-
-            const headers = [
+            headers = [
 
                 "Department",
 
-                ...specials.map(
-                    special =>
-                        special.label
-                )
+                "Q1",
+
+                "Q2",
+
+                "Q3",
+
+                "Q4",
+
+                "Yearly Average"
 
             ];
 
+        } else {
 
+            headers = [
+
+                "Department",
+
+                period
+
+            ];
+
+        }
+
+    }
+
+
+    else if (isSpecial) {
+
+        const specials =
+            report.special_surveys ||
+            [];
+
+
+        headers = [
+
+            "Department",
+
+            ...specials.map(
+                special =>
+                    special.label
+            )
+
+        ];
+
+    }
+
+
+    // =====================================================
+    // COMPANY HEADER
+    // =====================================================
+
+    const totalColumns =
+        headers.length;
+
+
+    worksheet.mergeCells(
+        1,
+        1,
+        1,
+        totalColumns
+    );
+
+
+    worksheet.getCell(
+        "A1"
+    ).value =
+        "RAJARAMBAPU PATIL SAHAKARI";
+
+
+    worksheet.getCell(
+        "A1"
+    ).font = {
+
+        bold: true,
+        size: 18
+
+    };
+
+
+    worksheet.getCell(
+        "A1"
+    ).alignment = {
+
+        horizontal: "center",
+        vertical: "middle"
+
+    };
+
+
+    worksheet.getRow(
+        1
+    ).height = 28;
+
+
+    // =====================================================
+    // COMPANY NAME - LINE 2
+    // =====================================================
+
+    worksheet.mergeCells(
+        2,
+        1,
+        2,
+        totalColumns
+    );
+
+
+    worksheet.getCell(
+        "A2"
+    ).value =
+        "SAKHAR KARKHANA LTD.";
+
+
+    worksheet.getCell(
+        "A2"
+    ).font = {
+
+        bold: true,
+        size: 16
+
+    };
+
+
+    worksheet.getCell(
+        "A2"
+    ).alignment = {
+
+        horizontal: "center",
+        vertical: "middle"
+
+    };
+
+
+    worksheet.getRow(
+        2
+    ).height = 25;
+
+
+    // =====================================================
+    // LOCATION
+    // =====================================================
+
+    worksheet.mergeCells(
+        3,
+        1,
+        3,
+        totalColumns
+    );
+
+
+    worksheet.getCell(
+        "A3"
+    ).value =
+        "RAJARAMNAGAR";
+
+
+    worksheet.getCell(
+        "A3"
+    ).font = {
+
+        bold: true,
+        size: 12
+
+    };
+
+
+    worksheet.getCell(
+        "A3"
+    ).alignment = {
+
+        horizontal: "center",
+        vertical: "middle"
+
+    };
+
+
+    worksheet.getRow(
+        3
+    ).height = 21;
+
+
+    // =====================================================
+    // REPORT TITLE
+    // =====================================================
+
+    worksheet.mergeCells(
+        5,
+        1,
+        5,
+        totalColumns
+    );
+
+
+    worksheet.getCell(
+        "A5"
+    ).value =
+        isGeneral
+            ? "ADMIN GENERAL REPORT"
+            : "ADMIN SPECIAL REPORT";
+
+
+    worksheet.getCell(
+        "A5"
+    ).font =
+        titleFont;
+
+
+    worksheet.getCell(
+        "A5"
+    ).alignment = {
+
+        horizontal: "center",
+        vertical: "middle"
+
+    };
+
+
+    worksheet.getRow(
+        5
+    ).height = 30;
+
+
+    // =====================================================
+    // FINANCIAL YEAR + PERIOD
+    // =====================================================
+
+    const financialYear =
+        report.financial_year ||
+        "-";
+
+
+    const reportPeriod =
+        report.report_period ||
+        (isGeneral
+            ? "YEARLY"
+            : "ALL");
+
+
+    worksheet.mergeCells(
+        7,
+        1,
+        7,
+        Math.max(
+            1,
+            Math.floor(
+                totalColumns / 2
+            )
+        )
+    );
+
+
+    worksheet.mergeCells(
+        7,
+        Math.max(
+            1,
+            Math.floor(
+                totalColumns / 2
+            ) + 1
+        ),
+        7,
+        totalColumns
+    );
+
+
+    const middleColumn =
+        Math.max(
+            1,
+            Math.floor(
+                totalColumns / 2
+            )
+        );
+
+
+    worksheet.getCell(
+        "A7"
+    ).value =
+        `Financial Year : ${financialYear}`;
+
+
+    worksheet.getCell(
+        `${String.fromCharCode(
+            64 + middleColumn + 1
+        )}7`
+    ).value =
+        `Period : ${reportPeriod}`;
+
+
+    worksheet.getRow(
+        7
+    ).font = {
+
+        bold: true,
+        size: 11
+
+    };
+
+
+    worksheet.getRow(
+        7
+    ).alignment = {
+
+        vertical: "middle"
+
+    };
+
+
+    // =====================================================
+    // REPORT SUMMARY
+    // =====================================================
+
+    worksheet.mergeCells(
+        9,
+        1,
+        9,
+        totalColumns
+    );
+
+
+    worksheet.getCell(
+        "A9"
+    ).value =
+        "REPORT SUMMARY";
+
+
+    worksheet.getCell(
+        "A9"
+    ).font =
+        sectionFont;
+
+
+    worksheet.getRow(
+        9
+    ).height = 22;
+
+
+    const summaryRows = [
+
+        [
+            "Report Type",
+            isGeneral
+                ? "General"
+                : "Special"
+        ],
+
+        [
+            "Financial Year",
+            financialYear
+        ],
+
+        [
+            "Period",
+            reportPeriod
+        ],
+
+        [
+            "Generated On",
+            new Date()
+                .toLocaleDateString(
+                    "en-GB"
+                )
+        ]
+
+    ];
+
+
+    for (
+        const summary
+        of summaryRows
+    ) {
+
+        const row =
             worksheet.addRow(
-                [
-                    `ADMIN SPECIAL REPORT - ${report.financial_year}`
-                ]
+                summary
             );
 
 
-            worksheet.mergeCells(
-                1,
-                1,
-                1,
-                headers.length
-            );
+        row.getCell(
+            1
+        ).font = {
+
+            bold: true
+
+        };
 
 
-            worksheet.getRow(
-                1
-            ).font = {
+        row.eachCell(
+            cell => {
 
-                bold: true,
-                size: 16
+                cell.border =
+                    borderStyle;
+
+                cell.alignment = {
+
+                    vertical: "middle"
+
+                };
+
+            }
+        );
+
+    }
+
+
+    // =====================================================
+    // PERFORMANCE SECTION
+    // =====================================================
+
+    const performanceTitleRow =
+        worksheet.lastRow.number + 2;
+
+
+    worksheet.mergeCells(
+        performanceTitleRow,
+        1,
+        performanceTitleRow,
+        totalColumns
+    );
+
+
+    worksheet.getCell(
+        `A${performanceTitleRow}`
+    ).value =
+        isGeneral
+            ? "DEPARTMENT-WISE USI PERFORMANCE"
+            : "DEPARTMENT-WISE SPECIAL SURVEY PERFORMANCE";
+
+
+    worksheet.getCell(
+        `A${performanceTitleRow}`
+    ).font =
+        sectionFont;
+
+
+    worksheet.getRow(
+        performanceTitleRow
+    ).height = 24;
+
+
+    // =====================================================
+    // TABLE HEADER
+    // =====================================================
+
+    const headerRowNumber =
+        performanceTitleRow + 1;
+
+
+    const headerRow =
+        worksheet.getRow(
+            headerRowNumber
+        );
+
+
+    headers.forEach(
+        (
+            header,
+            index
+        ) => {
+
+            const cell =
+                headerRow.getCell(
+                    index + 1
+                );
+
+
+            cell.value =
+                header;
+
+
+            cell.font =
+                headerFont;
+
+
+            cell.alignment = {
+
+                horizontal: "center",
+                vertical: "middle",
+                wrapText: true
 
             };
 
 
-            worksheet.addRow(
-                headers
-            );
+            cell.border =
+                borderStyle;
+
+        }
+    );
 
 
-            worksheet.getRow(
-                2
-            ).font = {
-
-                bold: true
-
-            };
+    headerRow.height = 28;
 
 
-            for (
-                const department
-                of report.departments
+    // =====================================================
+    // DATA
+    // =====================================================
+
+    for (
+        const department
+        of report.departments || []
+    ) {
+
+        const row = [
+
+            department.department_name
+
+        ];
+
+
+        if (isGeneral) {
+
+            const period =
+                String(
+                    report.report_period ||
+                    "YEARLY"
+                )
+                    .trim()
+                    .toUpperCase();
+
+
+            if (
+                period ===
+                "YEARLY"
             ) {
 
-                const row = [
-
-                    department.department_name
-
-                ];
-
-
-                for (
-                    const special
-                    of specials
-                ) {
-
-                    row.push(
-
-                        department[
-                            special.label
-                        ] ?? "-"
-
-                    );
-
-                }
+                row.push(
+                    department.Q1 ??
+                    "-"
+                );
 
 
-                worksheet.addRow(
-                    row
+                row.push(
+                    department.Q2 ??
+                    "-"
+                );
+
+
+                row.push(
+                    department.Q3 ??
+                    "-"
+                );
+
+
+                row.push(
+                    department.Q4 ??
+                    "-"
+                );
+
+
+                row.push(
+                    department.yearly_average ??
+                    "-"
+                );
+
+            } else {
+
+                row.push(
+                    department[
+                        period
+                    ] ??
+                    "-"
                 );
 
             }
@@ -1359,66 +1804,377 @@ class AdminReportExportService {
         }
 
 
-        else {
+        else if (isSpecial) {
 
-            throw new ApiError(
-                400,
-                "Unsupported report type."
-            );
+            const specials =
+                report.special_surveys ||
+                [];
+
+
+            for (
+                const special
+                of specials
+            ) {
+
+                row.push(
+
+                    department[
+                        special.label
+                    ] ??
+                    "-"
+
+                );
+
+            }
 
         }
 
 
-        // =================================================
-        // COLUMN WIDTH
-        // =================================================
-
-        worksheet.columns.forEach(
-            column => {
-
-                let maxLength =
-                    12;
+        const excelRow =
+            worksheet.addRow(
+                row
+            );
 
 
-                column.eachCell(
-                    cell => {
+        excelRow.eachCell(
+            (
+                cell,
+                index
+            ) => {
 
-                        const value =
-                            String(
-                                cell.value ??
-                                ""
-                            );
-
-
-                        maxLength =
-                            Math.max(
-                                maxLength,
-                                value.length + 2
-                            );
-
-                    }
-                );
+                cell.border =
+                    borderStyle;
 
 
-                column.width =
-                    Math.min(
-                        maxLength,
-                        30
-                    );
+                cell.alignment = {
+
+                    vertical: "middle",
+                    horizontal:
+                        index === 1
+                            ? "left"
+                            : "center"
+
+                };
+
+
+                if (
+                    index > 1
+                ) {
+
+                    cell.numFmt =
+                        '0.00"%"';
+
+                }
 
             }
         );
 
 
-        // =================================================
-        // RETURN BUFFER
-        // =================================================
-
-        return await workbook.xlsx
-            .writeBuffer();
+        excelRow.height = 22;
 
     }
 
+
+    // =====================================================
+    // YEARLY AVERAGE SECTION
+    // =====================================================
+
+    if (
+        isGeneral &&
+        String(
+            report.report_period ||
+            "YEARLY"
+        )
+            .toUpperCase() ===
+        "YEARLY"
+    ) {
+
+        const averageTitleRow =
+            worksheet.lastRow.number + 2;
+
+
+        worksheet.mergeCells(
+            averageTitleRow,
+            1,
+            averageTitleRow,
+            totalColumns
+        );
+
+
+        worksheet.getCell(
+            `A${averageTitleRow}`
+        ).value =
+            "YEARLY AVERAGE";
+
+
+        worksheet.getCell(
+            `A${averageTitleRow}`
+        ).font =
+            sectionFont;
+
+
+        const averageHeaderRow =
+            worksheet.getRow(
+                averageTitleRow + 1
+            );
+
+
+        averageHeaderRow.values = [
+
+            "Department",
+
+            "Yearly Average"
+
+        ];
+
+
+        averageHeaderRow.eachCell(
+            cell => {
+
+                cell.font =
+                    headerFont;
+
+
+                cell.border =
+                    borderStyle;
+
+
+                cell.alignment = {
+
+                    horizontal: "center",
+                    vertical: "middle"
+
+                };
+
+            }
+        );
+
+
+        for (
+            const department
+            of report.departments || []
+        ) {
+
+            if (
+                department.yearly_average !==
+                null &&
+                department.yearly_average !==
+                undefined
+            ) {
+
+                const averageRow =
+                    worksheet.addRow([
+
+                        department.department_name,
+
+                        department.yearly_average
+
+                    ]);
+
+
+                averageRow.eachCell(
+                    (
+                        cell,
+                        index
+                    ) => {
+
+                        cell.border =
+                            borderStyle;
+
+
+                        cell.alignment = {
+
+                            horizontal:
+                                index === 1
+                                    ? "left"
+                                    : "center",
+
+                            vertical:
+                                "middle"
+
+                        };
+
+
+                        if (
+                            index === 2
+                        ) {
+
+                            cell.numFmt =
+                                '0.00"%"';
+
+                        }
+
+                    }
+                );
+
+            }
+
+        }
+
+    }
+
+
+    // =====================================================
+    // FOOTER
+    // =====================================================
+
+    const footerRow =
+        worksheet.lastRow.number + 3;
+
+
+    worksheet.mergeCells(
+        footerRow,
+        1,
+        footerRow,
+        totalColumns
+    );
+
+
+    worksheet.getCell(
+        `A${footerRow}`
+    ).value =
+        "Report generated by User Satisfaction Index System";
+
+
+    worksheet.getCell(
+        `A${footerRow}`
+    ).font = {
+
+        italic: true,
+        size: 10
+
+    };
+
+
+    worksheet.getCell(
+        `A${footerRow}`
+    ).alignment = {
+
+        horizontal: "center",
+        vertical: "middle"
+
+    };
+
+
+    // =====================================================
+    // COLUMN WIDTH
+    // =====================================================
+
+    worksheet.columns.forEach(
+        (
+            column,
+            index
+        ) => {
+
+            let maxLength =
+                index === 1
+                    ? 22
+                    : 12;
+
+
+            column.eachCell(
+                cell => {
+
+                    const value =
+                        String(
+                            cell.value ??
+                            ""
+                        );
+
+
+                    maxLength =
+                        Math.max(
+                            maxLength,
+                            value.length + 3
+                        );
+
+                }
+            );
+
+
+            column.width =
+                Math.min(
+                    maxLength,
+                    index === 1
+                        ? 35
+                        : 20
+                );
+
+        }
+    );
+
+
+    // =====================================================
+    // FREEZE HEADER
+    // =====================================================
+
+    worksheet.views = [
+
+        {
+
+            state: "frozen",
+
+            ySplit:
+                headerRowNumber
+
+        }
+
+    ];
+
+
+    // =====================================================
+    // PRINT SETTINGS
+    // =====================================================
+
+    worksheet.pageSetup = {
+
+        orientation:
+            "landscape",
+
+        paperSize:
+            worksheet.PAPER_A4,
+
+        fitToPage:
+            true,
+
+        fitToWidth:
+            1,
+
+        fitToHeight:
+            0
+
+    };
+
+
+    worksheet.pageSetup.horizontalCentered =
+        true;
+
+
+    worksheet.pageMargins = {
+
+        left: 0.3,
+
+        right: 0.3,
+
+        top: 0.5,
+
+        bottom: 0.5,
+
+        header: 0.2,
+
+        footer: 0.2
+
+    };
+
+
+    // =====================================================
+    // RETURN BUFFER
+    // =====================================================
+
+    return await workbook.xlsx
+        .writeBuffer();
+
+}
 
     // =====================================================
     // PDF GENERATOR
@@ -1428,393 +2184,1681 @@ class AdminReportExportService {
     // npm install pdfkit
     // =====================================================
 
-    async generatePdf(
-        report
-    ) {
+   // =====================================================
+// PDF GENERATOR
+//
+// Professional Admin PDF Report
+//
+// Existing report data / functionality is NOT changed.
+// Only PDF presentation is improved.
+// =====================================================
 
-        const PDFDocument =
-            require("pdfkit");
+async generatePdf(
+    report
+) {
+
+    const PDFDocument =
+        require("pdfkit");
+
+    const fs =
+        require("fs");
+
+    const path =
+        require("path");
 
 
-        return new Promise(
-            (
-                resolve,
+    return new Promise(
+        (
+            resolve,
+            reject
+        ) => {
+
+            // =================================================
+            // REPORT TYPE
+            // =================================================
+
+            const isGeneral =
+                report?.report_type ===
+                "admin_general";
+
+
+            const isSpecial =
+                report?.report_type ===
+                "admin_special";
+
+
+            if (
+                !isGeneral &&
+                !isSpecial
+            ) {
+
+                return reject(
+                    new ApiError(
+                        400,
+                        "Unsupported report type."
+                    )
+                );
+
+            }
+
+
+            // =================================================
+            // YEAR / PERIOD
+            // =================================================
+
+            const financialYear =
+                report?.financial_year ||
+                "N/A";
+
+
+            const reportPeriod =
+                String(
+                    report?.report_period ||
+                    "YEARLY"
+                )
+                    .trim()
+                    .toUpperCase();
+
+
+            // =================================================
+            // DOCUMENT
+            //
+            // Yearly General / Special reports are landscape
+            // because they contain multiple columns.
+            // =================================================
+
+            const document =
+                new PDFDocument({
+
+                    size: "A4",
+
+                    layout: "landscape",
+
+                    margins: {
+
+                        top: 36,
+                        bottom: 42,
+                        left: 38,
+                        right: 38
+
+                    },
+
+                    bufferPages: true
+
+                });
+
+
+            const chunks = [];
+
+
+            document.on(
+                "data",
+                chunk => {
+
+                    chunks.push(
+                        chunk
+                    );
+
+                }
+            );
+
+
+            document.on(
+                "end",
+                () => {
+
+                    resolve(
+                        Buffer.concat(
+                            chunks
+                        )
+                    );
+
+                }
+            );
+
+
+            document.on(
+                "error",
                 reject
-            ) => {
-
-                const document =
-                    new PDFDocument({
-
-                        size: "A4",
-                        layout: "landscape",
-                        margin: 30
-
-                    });
+            );
 
 
-                const chunks = [];
+            // =================================================
+            // PAGE CONSTANTS
+            // =================================================
+
+            const pageWidth =
+                document.page.width;
 
 
-                document.on(
-                    "data",
-                    chunk => {
-
-                        chunks.push(
-                            chunk
-                        );
-
-                    }
-                );
+            const pageHeight =
+                document.page.height;
 
 
-                document.on(
-                    "end",
-                    () => {
-
-                        resolve(
-                            Buffer.concat(
-                                chunks
-                            )
-                        );
-
-                    }
-                );
+            const left =
+                document.page.margins.left;
 
 
-                document.on(
-                    "error",
-                    reject
-                );
+            const right =
+                document.page.margins.right;
 
 
-                // =================================================
-                // TITLE
-                // =================================================
-
-                const title =
-                    report.report_type ===
-                    "admin_general"
-
-                        ? "ADMIN GENERAL REPORT"
-
-                        : "ADMIN SPECIAL REPORT";
+            const top =
+                document.page.margins.top;
 
 
-                document
-                    .fontSize(16)
-                    .font("Helvetica-Bold")
-                    .text(
-                        title,
-                        {
-                            align: "center"
-                        }
-                    );
+            const bottom =
+                document.page.margins.bottom;
 
 
-                document
-                    .moveDown(0.5);
+            const usableWidth =
+                pageWidth -
+                left -
+                right;
 
 
-                document
-                    .fontSize(10)
-                    .font("Helvetica")
-                    .text(
-                        `Financial Year: ${report.financial_year}`
-                    );
+            const usableHeight =
+                pageHeight -
+                top -
+                bottom;
 
 
-                document
-                    .text(
-                        `Period: ${report.report_period}`
-                    );
+            // =================================================
+            // COMPANY INFORMATION
+            // =================================================
+
+            const companyName =
+                "RAJARAMBAPU PATIL SAHAKARI SAKHAR KARKHANA LTD.";
 
 
-                document
-                    .moveDown(1);
+            const companyLocation =
+                "RAJARAMNAGAR";
 
 
-                // =================================================
-                // PREPARE HEADERS
-                // =================================================
+            const reportTitle =
+                isGeneral
 
-                let headers;
+                    ? "ADMIN GENERAL REPORT"
 
+                    : "ADMIN SPECIAL REPORT";
+
+
+            // =================================================
+            // LOGO
+            //
+            // Put your logo here:
+            //
+            // backend/
+            //   assets/
+            //      rajarambapu-logo.png
+            //
+            // If logo is not found, PDF will continue normally.
+            // =================================================
+
+            const logoCandidates = [
+
+                path.join(
+                    process.cwd(),
+                    "assets",
+                    "rajarambapu-logo.png"
+                ),
+
+                path.join(
+                    process.cwd(),
+                    "src",
+                    "assets",
+                    "rajarambapu-logo.png"
+                ),
+
+                path.join(
+                    __dirname,
+                    "../assets/rajarambapu-logo.png"
+                ),
+
+                path.join(
+                    __dirname,
+                    "../public/assets/rajarambapu-logo.png"
+                )
+
+            ];
+
+
+            let logoPath =
+                null;
+
+
+            for (
+                const candidate
+                of logoCandidates
+            ) {
 
                 if (
-                    report.report_type ===
-                    "admin_general"
+                    fs.existsSync(
+                        candidate
+                    )
                 ) {
 
+                    logoPath =
+                        candidate;
+
+                    break;
+
+                }
+
+            }
+
+
+            // =================================================
+            // COLORS
+            // =================================================
+
+            const COLORS = {
+
+                navy:
+                    "#172B4D",
+
+                blue:
+                    "#1769D1",
+
+                lightBlue:
+                    "#EEF5FF",
+
+                border:
+                    "#C9D5E5",
+
+                softBorder:
+                    "#E2E8F0",
+
+                text:
+                    "#1F2937",
+
+                muted:
+                    "#64748B",
+
+                white:
+                    "#FFFFFF",
+
+                green:
+                    "#138A5B",
+
+                greenBg:
+                    "#EAF8F1",
+
+                grayBg:
+                    "#F7F9FC"
+
+            };
+
+
+            // =================================================
+            // HELPERS
+            // =================================================
+
+            const drawHorizontalLine =
+                (
+                    y,
+                    color =
+                        COLORS.border,
+                    width = 0.8
+                ) => {
+
+                    document
+                        .save()
+                        .lineWidth(
+                            width
+                        )
+                        .strokeColor(
+                            color
+                        )
+                        .moveTo(
+                            left,
+                            y
+                        )
+                        .lineTo(
+                            pageWidth - right,
+                            y
+                        )
+                        .stroke()
+                        .restore();
+
+                };
+
+
+            const safeValue =
+                value => {
+
                     if (
-                        report.report_period ===
-                        "YEARLY"
+                        value === null ||
+                        value === undefined ||
+                        value === ""
                     ) {
 
-                        headers = [
-
-                            "Department",
-                            "Q1",
-                            "Q2",
-                            "Q3",
-                            "Q4",
-                            "Yearly Average"
-
-                        ];
-
-                    } else {
-
-                        headers = [
-
-                            "Department",
-                            report.report_period
-
-                        ];
+                        return "—";
 
                     }
+
+                    return String(
+                        value
+                    );
+
+                };
+
+
+            const formatScore =
+                value => {
+
+                    if (
+                        value === null ||
+                        value === undefined ||
+                        value === ""
+                    ) {
+
+                        return "—";
+
+                    }
+
+                    const number =
+                        Number(value);
+
+
+                    if (
+                        !Number.isFinite(
+                            number
+                        )
+                    ) {
+
+                        return "—";
+
+                    }
+
+
+                    return `${number.toFixed(2)}%`;
+
+                };
+
+
+            // =================================================
+            // TABLE HEADER DATA
+            // =================================================
+
+            let headers;
+
+
+            if (
+                isGeneral
+            ) {
+
+                if (
+                    reportPeriod ===
+                    "YEARLY"
+                ) {
+
+                    headers = [
+
+                        "Department",
+                        "Q1",
+                        "Q2",
+                        "Q3",
+                        "Q4",
+                        "Yearly Average"
+
+                    ];
 
                 } else {
 
                     headers = [
 
                         "Department",
-
-                        ...(report.special_surveys || [])
-                            .map(
-                                special =>
-                                    special.label
-                            )
+                        reportPeriod
 
                     ];
 
                 }
 
+            } else {
 
-                // =================================================
-                // COLUMN WIDTHS
-                // =================================================
+                headers = [
 
-                const pageWidth =
-                    document.page.width -
-                    document.page.margins.left -
-                    document.page.margins.right;
+                    "Department",
 
-
-                const columnWidth =
-                    pageWidth /
-                    headers.length;
-
-
-                const startX =
-                    document.page.margins.left;
-
-
-                let currentY =
-                    document.y;
-
-
-                // =================================================
-                // DRAW HEADER
-                // =================================================
-
-                document
-                    .font(
-                        "Helvetica-Bold"
+                    ...(
+                        report?.special_surveys ||
+                        []
                     )
-                    .fontSize(9);
+                        .map(
+                            special =>
+                                special.label
+                        )
+
+                ];
+
+            }
 
 
-                headers.forEach(
-                    (
-                        header,
-                        index
-                    ) => {
+            // =================================================
+            // COLUMN WIDTHS
+            // =================================================
 
-                        document.text(
-
-                            header,
-
-                            startX +
-                            (
-                                index *
-                                columnWidth
-                            ),
-
-                            currentY,
-
-                            {
-
-                                width:
-                                    columnWidth,
-
-                                align:
-                                    index === 0
-                                        ? "left"
-                                        : "center"
-
-                            }
-
-                        );
-
-                    }
-                );
+            const columnCount =
+                headers.length;
 
 
-                currentY += 22;
+            let columnWidths;
 
 
-                // =================================================
-                // DRAW ROWS
-                // =================================================
+            if (
+                columnCount === 6
+            ) {
 
-                document
-                    .font(
-                        "Helvetica"
+                // Department + Q1 + Q2 + Q3 + Q4 + Average
+
+                columnWidths = [
+
+                    usableWidth * 0.30,
+
+                    usableWidth * 0.14,
+
+                    usableWidth * 0.14,
+
+                    usableWidth * 0.14,
+
+                    usableWidth * 0.14,
+
+                    usableWidth * 0.14
+
+                ];
+
+            } else {
+
+                const firstWidth =
+                    usableWidth *
+                    0.34;
+
+
+                const remainingWidth =
+                    usableWidth -
+                    firstWidth;
+
+
+                const otherCount =
+                    columnCount -
+                    1;
+
+
+                columnWidths = [
+
+                    firstWidth,
+
+                    ...Array(
+                        otherCount
                     )
-                    .fontSize(8);
+                        .fill(
+                            remainingWidth /
+                            Math.max(
+                                otherCount,
+                                1
+                            )
+                        )
+
+                ];
+
+            }
 
 
-                for (
-                    const department
-                    of report.departments
-                ) {
+            // =================================================
+            // REPORT ROWS
+            // =================================================
 
-                    let values;
+            const departments =
+                Array.isArray(
+                    report?.departments
+                )
+
+                    ? report.departments
+
+                    : [];
 
 
-                    if (
-                        report.report_type ===
-                        "admin_general"
-                    ) {
+            const rows =
+                departments.map(
+                    department => {
+
+                        const departmentName =
+                            department?.department_name ||
+                            department?.department_code ||
+                            "—";
+
 
                         if (
-                            report.report_period ===
+                            isGeneral &&
+                            reportPeriod ===
                             "YEARLY"
                         ) {
 
-                            values = [
+                            return [
 
-                                department.department_name,
+                                departmentName,
 
-                                department.Q1 ??
-                                    "-",
+                                formatScore(
+                                    department?.Q1
+                                ),
 
-                                department.Q2 ??
-                                    "-",
+                                formatScore(
+                                    department?.Q2
+                                ),
 
-                                department.Q3 ??
-                                    "-",
+                                formatScore(
+                                    department?.Q3
+                                ),
 
-                                department.Q4 ??
-                                    "-",
+                                formatScore(
+                                    department?.Q4
+                                ),
 
-                                department.yearly_average ??
-                                    "-"
-
-                            ];
-
-                        } else {
-
-                            values = [
-
-                                department.department_name,
-
-                                department[
-                                    report.report_period
-                                ] ??
-                                    "-"
+                                formatScore(
+                                    department?.yearly_average
+                                )
 
                             ];
 
                         }
 
-                    } else {
 
-                        values = [
+                        if (
+                            isGeneral
+                        ) {
 
-                            department.department_name,
+                            return [
 
-                            ...(report.special_surveys || [])
+                                departmentName,
+
+                                formatScore(
+                                    department?.[
+                                        reportPeriod
+                                    ]
+                                )
+
+                            ];
+
+                        }
+
+
+                        // SPECIAL
+
+                        return [
+
+                            departmentName,
+
+                            ...(
+                                report?.special_surveys ||
+                                []
+                            )
                                 .map(
                                     special =>
-                                        department[
-                                            special.label
-                                        ] ??
-                                        "-"
+                                        formatScore(
+                                            department?.[
+                                                special.label
+                                            ]
+                                        )
                                 )
 
                         ];
 
                     }
+                );
 
 
-                    values.forEach(
+            // =================================================
+            // DRAW COMPANY HEADER
+            // =================================================
+
+            const drawCompanyHeader =
+                () => {
+
+                    let y =
+                        top;
+
+
+                    // -----------------------------------------
+                    // Logo
+                    // -----------------------------------------
+
+                    if (
+                        logoPath
+                    ) {
+
+                        try {
+
+                            document.image(
+                                logoPath,
+                                left,
+                                y,
+                                {
+                                    fit: [
+                                        62,
+                                        62
+                                    ],
+                                    align:
+                                        "center",
+                                    valign:
+                                        "center"
+                                }
+                            );
+
+                        } catch (
+                            error
+                        ) {
+
+                            // Do not fail report if logo
+                            // cannot be rendered.
+
+                        }
+
+                    }
+
+
+                    // -----------------------------------------
+                    // Company Name
+                    // -----------------------------------------
+
+                    const companyStartX =
+                        logoPath
+                            ? left + 78
+                            : left;
+
+
+                    document
+                        .font(
+                            "Helvetica-Bold"
+                        )
+                        .fontSize(
+                            17
+                        )
+                        .fillColor(
+                            COLORS.navy
+                        )
+                        .text(
+                            companyName,
+                            companyStartX,
+                            y + 4,
+                            {
+                                width:
+                                    usableWidth -
+                                    78,
+                                align:
+                                    "center"
+                            }
+                        );
+
+
+                    document
+                        .font(
+                            "Helvetica-Bold"
+                        )
+                        .fontSize(
+                            12
+                        )
+                        .fillColor(
+                            COLORS.muted
+                        )
+                        .text(
+                            companyLocation,
+                            companyStartX,
+                            y + 27,
+                            {
+                                width:
+                                    usableWidth -
+                                    78,
+                                align:
+                                    "center"
+                            }
+                        );
+
+
+                    // -----------------------------------------
+                    // Blue Accent
+                    // -----------------------------------------
+
+                    document
+                        .save()
+                        .lineWidth(
+                            2.2
+                        )
+                        .strokeColor(
+                            COLORS.blue
+                        )
+                        .moveTo(
+                            left,
+                            y + 68
+                        )
+                        .lineTo(
+                            pageWidth - right,
+                            y + 68
+                        )
+                        .stroke()
+                        .restore();
+
+
+                    return y + 84;
+
+                };
+
+
+            // =================================================
+            // DRAW REPORT TITLE
+            // =================================================
+
+            const drawReportHeading =
+                () => {
+
+                    let y =
+                        drawCompanyHeader();
+
+
+                    document
+                        .font(
+                            "Helvetica-Bold"
+                        )
+                        .fontSize(
+                            16
+                        )
+                        .fillColor(
+                            COLORS.navy
+                        )
+                        .text(
+                            reportTitle,
+                            left,
+                            y,
+                            {
+                                width:
+                                    usableWidth,
+                                align:
+                                    "center"
+                            }
+                        );
+
+
+                    y += 27;
+
+
+                    document
+                        .font(
+                            "Helvetica"
+                        )
+                        .fontSize(
+                            9.5
+                        )
+                        .fillColor(
+                            COLORS.muted
+                        )
+                        .text(
+                            `Financial Year : ${financialYear}`,
+                            left,
+                            y,
+                            {
+                                width:
+                                    usableWidth *
+                                    0.50
+                            }
+                        );
+
+
+                    document
+                        .font(
+                            "Helvetica"
+                        )
+                        .fontSize(
+                            9.5
+                        )
+                        .fillColor(
+                            COLORS.muted
+                        )
+                        .text(
+                            `Period : ${reportPeriod}`,
+                            left +
+                            usableWidth *
+                            0.50,
+                            y,
+                            {
+                                width:
+                                    usableWidth *
+                                    0.50,
+                                align:
+                                    "right"
+                            }
+                        );
+
+
+                    y += 24;
+
+
+                    drawHorizontalLine(
+                        y,
+                        COLORS.border,
+                        1
+                    );
+
+
+                    return y + 16;
+
+                };
+
+
+            // =================================================
+            // REPORT SUMMARY
+            // =================================================
+
+            const drawSummary =
+                y => {
+
+                    const summaryHeight =
+                        65;
+
+
+                    // Outer box
+
+                    document
+                        .save()
+                        .roundedRect(
+                            left,
+                            y,
+                            usableWidth,
+                            summaryHeight,
+                            6
+                        )
+                        .fillColor(
+                            COLORS.grayBg
+                        )
+                        .fill()
+                        .lineWidth(
+                            0.8
+                        )
+                        .strokeColor(
+                            COLORS.border
+                        )
+                        .stroke()
+                        .restore();
+
+
+                    document
+                        .font(
+                            "Helvetica-Bold"
+                        )
+                        .fontSize(
+                            9
+                        )
+                        .fillColor(
+                            COLORS.blue
+                        )
+                        .text(
+                            "REPORT SUMMARY",
+                            left + 12,
+                            y + 9
+                        );
+
+
+                    const summaryY =
+                        y + 29;
+
+
+                    // Report Type
+
+                    document
+                        .font(
+                            "Helvetica"
+                        )
+                        .fontSize(
+                            8.5
+                        )
+                        .fillColor(
+                            COLORS.text
+                        )
+                        .text(
+                            `Report Type : ${
+                                isGeneral
+                                    ? "General"
+                                    : "Special"
+                            }`,
+                            left + 12,
+                            summaryY
+                        );
+
+
+                    // Financial Year
+
+                    document
+                        .text(
+                            `Financial Year : ${financialYear}`,
+                            left + 190,
+                            summaryY
+                        );
+
+
+                    // Period
+
+                    document
+                        .text(
+                            `Period : ${reportPeriod}`,
+                            left + 390,
+                            summaryY
+                        );
+
+
+                    // Generated On
+
+                    document
+                        .text(
+                            `Generated On : ${
+                                new Date()
+                                    .toLocaleDateString(
+                                        "en-GB"
+                                    )
+                            }`,
+                            left + 540,
+                            summaryY
+                        );
+
+
+                    return y +
+                        summaryHeight +
+                        18;
+
+                };
+
+
+            // =================================================
+            // DRAW SECTION TITLE
+            // =================================================
+
+            const drawSectionTitle =
+                y => {
+
+                    document
+                        .font(
+                            "Helvetica-Bold"
+                        )
+                        .fontSize(
+                            11
+                        )
+                        .fillColor(
+                            COLORS.navy
+                        )
+                        .text(
+                            "DEPARTMENT-WISE USI PERFORMANCE",
+                            left,
+                            y
+                        );
+
+
+                    document
+                        .font(
+                            "Helvetica"
+                        )
+                        .fontSize(
+                            8
+                        )
+                        .fillColor(
+                            COLORS.muted
+                        )
+                        .text(
+                            "User Satisfaction Index performance across departments and evaluation periods.",
+                            left,
+                            y + 16
+                        );
+
+
+                    return y + 35;
+
+                };
+
+
+            // =================================================
+            // TABLE
+            // =================================================
+
+            const headerHeight =
+                32;
+
+
+            const rowHeight =
+                27;
+
+
+            const drawTableHeader =
+                y => {
+
+                    let x =
+                        left;
+
+
+                    // -----------------------------------------
+                    // Header background
+                    // -----------------------------------------
+
+                    document
+                        .save()
+                        .rect(
+                            left,
+                            y,
+                            usableWidth,
+                            headerHeight
+                        )
+                        .fillColor(
+                            COLORS.navy
+                        )
+                        .fill()
+                        .restore();
+
+
+                    headers.forEach(
+                        (
+                            header,
+                            index
+                        ) => {
+
+                            document
+                                .font(
+                                    "Helvetica-Bold"
+                                )
+                                .fontSize(
+                                    8.5
+                                )
+                                .fillColor(
+                                    COLORS.white
+                                )
+                                .text(
+                                    safeValue(
+                                        header
+                                    ),
+                                    x + 7,
+                                    y + 10,
+                                    {
+                                        width:
+                                            columnWidths[
+                                                index
+                                            ] - 14,
+                                        align:
+                                            index === 0
+                                                ? "left"
+                                                : "center"
+                                    }
+                                );
+
+
+                            // Vertical separator
+                            // between ALL columns.
+
+                            if (
+                                index >
+                                0
+                            ) {
+
+                                document
+                                    .save()
+                                    .lineWidth(
+                                        0.7
+                                    )
+                                    .strokeColor(
+                                        "#6D7D95"
+                                    )
+                                    .moveTo(
+                                        x,
+                                        y
+                                    )
+                                    .lineTo(
+                                        x,
+                                        y +
+                                        headerHeight
+                                    )
+                                    .stroke()
+                                    .restore();
+
+                            }
+
+
+                            x +=
+                                columnWidths[
+                                    index
+                                ];
+
+                        });
+
+
+                    // Outer header border
+
+                    document
+                        .save()
+                        .lineWidth(
+                            0.8
+                        )
+                        .strokeColor(
+                            COLORS.navy
+                        )
+                        .rect(
+                            left,
+                            y,
+                            usableWidth,
+                            headerHeight
+                        )
+                        .stroke()
+                        .restore();
+
+
+                    return y +
+                        headerHeight;
+
+                };
+
+
+            const drawTableRow =
+                (
+                    row,
+                    y,
+                    rowIndex
+                ) => {
+
+                    let x =
+                        left;
+
+
+                    // Alternating background
+
+                    if (
+                        rowIndex % 2 === 0
+                    ) {
+
+                        document
+                            .save()
+                            .rect(
+                                left,
+                                y,
+                                usableWidth,
+                                rowHeight
+                            )
+                            .fillColor(
+                                "#F8FAFD"
+                            )
+                            .fill()
+                            .restore();
+
+                    }
+
+
+                    row.forEach(
                         (
                             value,
                             index
                         ) => {
 
-                            document.text(
+                            // ---------------------------------
+                            // CELL
+                            // ---------------------------------
 
-                                String(
-                                    value
-                                ),
+                            document
+                                .save()
+                                .lineWidth(
+                                    0.65
+                                )
+                                .strokeColor(
+                                    COLORS.border
+                                )
+                                .rect(
+                                    x,
+                                    y,
+                                    columnWidths[
+                                        index
+                                    ],
+                                    rowHeight
+                                )
+                                .stroke()
+                                .restore();
 
-                                startX +
+
+                            // ---------------------------------
+                            // VALUE
+                            // ---------------------------------
+
+                            const isDepartment =
+                                index === 0;
+
+
+                            const isAverage =
+                                index ===
+                                row.length - 1 &&
                                 (
-                                    index *
-                                    columnWidth
-                                ),
+                                    reportPeriod ===
+                                    "YEARLY"
+                                );
 
-                                currentY,
 
-                                {
+                            document
+                                .font(
+                                    isDepartment ||
+                                    isAverage
+                                        ? "Helvetica-Bold"
+                                        : "Helvetica"
+                                )
+                                .fontSize(
+                                    8.5
+                                )
+                                .fillColor(
+                                    isDepartment
+                                        ? COLORS.text
+                                        : COLORS.navy
+                                )
+                                .text(
+                                    safeValue(
+                                        value
+                                    ),
+                                    x + 7,
+                                    y + 8,
+                                    {
+                                        width:
+                                            columnWidths[
+                                                index
+                                            ] - 14,
+                                        align:
+                                            index === 0
+                                                ? "left"
+                                                : "center"
+                                    }
+                                );
 
-                                    width:
-                                        columnWidth,
 
-                                    align:
-                                        index === 0
-                                            ? "left"
-                                            : "center"
+                            x +=
+                                columnWidths[
+                                    index
+                                ];
 
-                                }
+                        });
 
-                            );
+
+                    return y +
+                        rowHeight;
+
+                };
+
+
+            // =================================================
+            // DRAW AVERAGE ROW
+            // =================================================
+
+            const drawAverageRow =
+                (
+                    row,
+                    y
+                ) => {
+
+                    let x =
+                        left;
+
+
+                    document
+                        .save()
+                        .rect(
+                            left,
+                            y,
+                            usableWidth,
+                            rowHeight
+                        )
+                        .fillColor(
+                            COLORS.lightBlue
+                        )
+                        .fill()
+                        .restore();
+
+
+                    row.forEach(
+                        (
+                            value,
+                            index
+                        ) => {
+
+                            document
+                                .save()
+                                .lineWidth(
+                                    1
+                                )
+                                .strokeColor(
+                                    COLORS.blue
+                                )
+                                .rect(
+                                    x,
+                                    y,
+                                    columnWidths[
+                                        index
+                                    ],
+                                    rowHeight
+                                )
+                                .stroke()
+                                .restore();
+
+
+                            document
+                                .font(
+                                    "Helvetica-Bold"
+                                )
+                                .fontSize(
+                                    8.5
+                                )
+                                .fillColor(
+                                    COLORS.navy
+                                )
+                                .text(
+                                    safeValue(
+                                        value
+                                    ),
+                                    x + 7,
+                                    y + 8,
+                                    {
+                                        width:
+                                            columnWidths[
+                                                index
+                                            ] - 14,
+                                        align:
+                                            index === 0
+                                                ? "left"
+                                                : "center"
+                                    }
+                                );
+
+
+                            x +=
+                                columnWidths[
+                                    index
+                                ];
+
+                        });
+
+
+                    return y +
+                        rowHeight;
+
+                };
+
+
+            // =================================================
+            // DRAW TABLE
+            // =================================================
+
+            const drawTable =
+                y => {
+
+                    let currentY =
+                        drawTableHeader(
+                            y
+                        );
+
+
+                    rows.forEach(
+                        (
+                            row,
+                            index
+                        ) => {
+
+                            // Page break
+
+                            if (
+                                currentY +
+                                rowHeight +
+                                bottom >
+                                pageHeight
+                            ) {
+
+                                document.addPage();
+
+                                currentY =
+                                    drawCompanyHeader();
+
+                                currentY =
+                                    drawTableHeader(
+                                        currentY
+                                    );
+
+                            }
+
+
+                            currentY =
+                                drawTableRow(
+                                    row,
+                                    currentY,
+                                    index
+                                );
 
                         }
                     );
 
 
-                    currentY += 20;
-
-
                     // =================================================
-                    // NEW PAGE
+                    // AVERAGE ROW
+                    //
+                    // Admin general report intentionally does not
+                    // depend on an average row because existing
+                    // functionality does not return one.
+                    // Therefore this is only added if data exists.
                     // =================================================
 
                     if (
-                        currentY >
-                        document.page.height - 40
+                        isGeneral &&
+                        reportPeriod === "YEARLY" &&
+                        report?.quarterly_average
                     ) {
 
-                        document.addPage();
+                        const averageRow = [
+
+                            "Average",
+
+                            formatScore(
+                                report
+                                    ?.quarterly_average
+                                    ?.Q1
+                            ),
+
+                            formatScore(
+                                report
+                                    ?.quarterly_average
+                                    ?.Q2
+                            ),
+
+                            formatScore(
+                                report
+                                    ?.quarterly_average
+                                    ?.Q3
+                            ),
+
+                            formatScore(
+                                report
+                                    ?.quarterly_average
+                                    ?.Q4
+                            ),
+
+                            formatScore(
+                                report
+                                    ?.yearly_average
+                            )
+
+                        ];
+
+
+                        if (
+                            currentY +
+                            rowHeight +
+                            bottom >
+                            pageHeight
+                        ) {
+
+                            document.addPage();
+
+                            currentY =
+                                drawCompanyHeader();
+
+                            currentY =
+                                drawTableHeader(
+                                    currentY
+                                );
+
+                        }
 
 
                         currentY =
-                            document.page.margins.top;
+                            drawAverageRow(
+                                averageRow,
+                                currentY
+                            );
 
                     }
 
-                }
+
+                    return currentY;
+
+                };
 
 
-                document.end();
+            // =================================================
+            // START FIRST PAGE
+            // =================================================
+
+            let currentY =
+                drawReportHeading();
+
+
+            // =================================================
+            // SUMMARY
+            // =================================================
+
+            currentY =
+                drawSummary(
+                    currentY
+                );
+
+
+            // =================================================
+            // SECTION
+            // =================================================
+
+            currentY =
+                drawSectionTitle(
+                    currentY
+                );
+
+
+            // =================================================
+            // TABLE
+            // =================================================
+
+            currentY =
+                drawTable(
+                    currentY
+                );
+
+
+            // =================================================
+            // FOOTER ON ALL PAGES
+            // =================================================
+
+            const range =
+                document.bufferedPageRange();
+
+
+            for (
+                let pageIndex =
+                    range.start;
+
+                pageIndex <
+                    range.start +
+                    range.count;
+
+                pageIndex++
+            ) {
+
+                document.switchToPage(
+                    pageIndex
+                );
+
+
+                const footerY =
+                    pageHeight -
+                    bottom +
+                    12;
+
+
+                document
+                    .save()
+                    .lineWidth(
+                        0.7
+                    )
+                    .strokeColor(
+                        COLORS.softBorder
+                    )
+                    .moveTo(
+                        left,
+                        footerY - 8
+                    )
+                    .lineTo(
+                        pageWidth - right,
+                        footerY - 8
+                    )
+                    .stroke()
+                    .restore();
+
+
+                document
+                    .font(
+                        "Helvetica"
+                    )
+                    .fontSize(
+                        7.5
+                    )
+                    .fillColor(
+                        COLORS.muted
+                    )
+                    .text(
+                        "User Satisfaction Index System",
+                        left,
+                        footerY,
+                        {
+                            width:
+                                usableWidth *
+                                0.50,
+                            align:
+                                "left"
+                        }
+                    );
+
+
+                document
+                    .text(
+                        `Page ${
+                            pageIndex -
+                            range.start +
+                            1
+                        } of ${range.count}`,
+                        left +
+                        usableWidth *
+                        0.50,
+                        footerY,
+                        {
+                            width:
+                                usableWidth *
+                                0.50,
+                            align:
+                                "right"
+                        }
+                    );
 
             }
-        );
 
-    }
 
+            // =================================================
+            // FINISH
+            // =================================================
+
+            document.end();
+
+        }
+    );
+
+}
 }
 
 
