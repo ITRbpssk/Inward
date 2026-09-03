@@ -8,6 +8,9 @@ const profileController =
 const authMiddleware =
     require("../middlewares/auth.middleware");
 
+const activityMiddleware =
+    require("../middlewares/activity.middleware");
+
 
 // =====================================================
 // COMMON PROFILE ROUTES
@@ -32,6 +35,9 @@ router.get(
 
 router.put(
     "/change-password",
+
+    activityMiddleware,
+
     profileController.changePassword
 );
 

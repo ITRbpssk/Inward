@@ -13,6 +13,10 @@ const authMiddleware =
     require("../middlewares/auth.middleware");
 
 
+const activityMiddleware =
+    require("../middlewares/activity.middleware");
+
+
 const roleMiddleware =
     require("../middlewares/role.middleware");
 
@@ -40,10 +44,6 @@ router.get(
     departmentMappingController
         .getMyEvaluationTargets
 );
-
-
-
-
 
 
 // =====================================================
@@ -96,8 +96,6 @@ router.get(
 
 // =====================================================
 // ADMIN - SURVEY BULK
-//
-// survey.ts uses this.
 // =====================================================
 
 router.post(
@@ -107,6 +105,8 @@ router.post(
         ROLES.ADMIN
     ]),
 
+    activityMiddleware,
+
     departmentMappingController
         .createBulkMappings
 );
@@ -114,8 +114,6 @@ router.post(
 
 // =====================================================
 // ADMIN - GENERAL DEPARTMENT BULK
-//
-// department-mapping.ts uses this.
 // =====================================================
 
 router.post(
@@ -125,6 +123,8 @@ router.post(
         ROLES.ADMIN
     ]),
 
+    activityMiddleware,
+
     departmentMappingController
         .createDepartmentBulkMappings
 );
@@ -132,8 +132,6 @@ router.post(
 
 // =====================================================
 // ADMIN + HOD - GET MAPPINGS BY SURVEY
-//
-// MUST COME BEFORE /:id
 // =====================================================
 
 router.get(
@@ -151,8 +149,6 @@ router.get(
 
 // =====================================================
 // ADMIN + HOD - UPDATE ALL SURVEY MAPPINGS
-//
-// USED BY EDIT SURVEY
 // =====================================================
 
 router.put(
@@ -162,6 +158,8 @@ router.put(
         ROLES.ADMIN,
         ROLES.HOD
     ]),
+
+    activityMiddleware,
 
     departmentMappingController
         .updateSurveyMappings
@@ -195,6 +193,8 @@ router.post(
         ROLES.ADMIN
     ]),
 
+    activityMiddleware,
+
     departmentMappingController
         .createMapping
 );
@@ -210,6 +210,8 @@ router.put(
     roleMiddleware([
         ROLES.ADMIN
     ]),
+
+    activityMiddleware,
 
     departmentMappingController
         .updateMapping
@@ -227,10 +229,16 @@ router.delete(
         ROLES.ADMIN
     ]),
 
+    activityMiddleware,
+
     departmentMappingController
         .deleteMapping
 );
 
+
+// =====================================================
+// EXPORT
+// =====================================================
 
 module.exports =
     router;

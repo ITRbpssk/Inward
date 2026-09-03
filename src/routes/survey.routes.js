@@ -8,6 +8,9 @@ const surveyController =
 const authMiddleware =
     require("../middlewares/auth.middleware");
 
+const activityMiddleware =
+    require("../middlewares/activity.middleware");
+
 const roleMiddleware =
     require("../middlewares/role.middleware");
 
@@ -98,6 +101,8 @@ router.post(
         ROLES.HOD
     ]),
 
+    activityMiddleware,
+
     surveyController.createSurvey
 );
 
@@ -115,6 +120,8 @@ router.put(
         ROLES.HOD
     ]),
 
+    activityMiddleware,
+
     surveyController.updateSurvey
 );
 
@@ -131,8 +138,14 @@ router.delete(
         ROLES.ADMIN
     ]),
 
+    activityMiddleware,
+
     surveyController.deleteSurvey
 );
 
+
+// =====================================================
+// EXPORT
+// =====================================================
 
 module.exports = router;

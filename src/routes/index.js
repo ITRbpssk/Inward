@@ -63,6 +63,16 @@ const adminReportExportRoutes =
     require("./adminReportExport.routes");
 
 
+
+
+
+
+
+
+    const activityRoutes =
+    require("./activity.routes");
+
+
 // =====================================================
 // HOD REPORT ROUTES
 // =====================================================
@@ -318,6 +328,19 @@ router.use(
 router.use(
     "/roles",
     roleRoutes
+);
+
+
+
+
+
+
+
+
+
+router.use(
+    "/activity-logs",
+    activityRoutes
 );
 
 

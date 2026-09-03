@@ -8,6 +8,9 @@ const specialParameterController =
 const authMiddleware =
     require("../middlewares/auth.middleware");
 
+const activityMiddleware =
+    require("../middlewares/activity.middleware");
+
 const roleMiddleware =
     require("../middlewares/role.middleware");
 
@@ -83,6 +86,8 @@ router.post(
         ROLES.HOD
     ]),
 
+    activityMiddleware,
+
     specialParameterController
         .createParameter
 );
@@ -104,6 +109,8 @@ router.put(
         ROLES.ADMIN,
         ROLES.HOD
     ]),
+
+    activityMiddleware,
 
     specialParameterController
         .updateParameter
@@ -127,9 +134,15 @@ router.delete(
         ROLES.HOD
     ]),
 
+    activityMiddleware,
+
     specialParameterController
         .deleteParameter
 );
 
+
+// =====================================================
+// EXPORT
+// =====================================================
 
 module.exports = router;

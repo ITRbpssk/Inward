@@ -14,6 +14,10 @@ const authMiddleware =
     require("../middlewares/auth.middleware");
 
 
+const activityMiddleware =
+    require("../middlewares/activity.middleware");
+
+
 const roleMiddleware =
     require("../middlewares/role.middleware");
 
@@ -70,6 +74,8 @@ router.get(
         ROLES.ADMIN
     ]),
 
+    activityMiddleware,
+
     adminReportExportController
         .exportGeneral
 
@@ -102,6 +108,8 @@ router.get(
     roleMiddleware([
         ROLES.ADMIN
     ]),
+
+    activityMiddleware,
 
     adminReportExportController
         .exportSpecial

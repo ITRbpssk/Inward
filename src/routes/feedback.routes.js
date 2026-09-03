@@ -8,6 +8,9 @@ const feedbackController =
 const authMiddleware =
     require("../middlewares/auth.middleware");
 
+const activityMiddleware =
+    require("../middlewares/activity.middleware");
+
 const roleMiddleware =
     require("../middlewares/role.middleware");
 
@@ -19,7 +22,9 @@ const ROLES =
 // FEEDBACK ROUTER LOADED
 // =====================================================
 
-console.log("🔥 FEEDBACK ROUTES FILE LOADED");
+console.log(
+    "🔥 FEEDBACK ROUTES FILE LOADED"
+);
 
 
 // =====================================================
@@ -41,7 +46,9 @@ router.use((req, res, next) => {
 // AUTHENTICATION
 // =====================================================
 
-router.use(authMiddleware);
+router.use(
+    authMiddleware
+);
 
 
 // =====================================================
@@ -54,6 +61,8 @@ router.post(
     roleMiddleware([
         ROLES.HOD
     ]),
+
+    activityMiddleware,
 
     feedbackController.submitOrSaveFeedback
 );
@@ -127,6 +136,7 @@ router.get(
     (req, res, next) => {
 
         console.log("");
+
         console.log(
             "🔥🔥🔥 ADMIN FEEDBACK STATUS ROUTE HIT 🔥🔥🔥"
         );

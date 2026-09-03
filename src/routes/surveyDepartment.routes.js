@@ -10,6 +10,9 @@ const surveyDepartmentController =
 const authMiddleware =
     require("../middlewares/auth.middleware");
 
+const activityMiddleware =
+    require("../middlewares/activity.middleware");
+
 const roleMiddleware =
     require("../middlewares/role.middleware");
 
@@ -20,20 +23,46 @@ const ROLES =
 router.use(authMiddleware);
 
 
-// Get eligible departments for a survey
+// =====================================================
+// GET ELIGIBLE DEPARTMENTS FOR A SURVEY
+//
+// ADMIN + HOD
+// =====================================================
+
 router.get(
     "/:surveyId",
-    roleMiddleware([ROLES.ADMIN,ROLES.HOD]),
+
+    roleMiddleware([
+        ROLES.ADMIN,
+        ROLES.HOD
+    ]),
+
     surveyDepartmentController.getDepartmentsBySurvey
 );
 
 
-// Save / Update eligible departments for a survey
+// =====================================================
+// SAVE / UPDATE ELIGIBLE DEPARTMENTS FOR A SURVEY
+//
+// ADMIN + HOD
+// =====================================================
+
 router.put(
     "/:surveyId",
-    roleMiddleware([ROLES.ADMIN,ROLES.HOD]),
+
+    roleMiddleware([
+        ROLES.ADMIN,
+        ROLES.HOD
+    ]),
+
+    activityMiddleware,
+
     surveyDepartmentController.updateSurveyDepartments
 );
 
+
+// =====================================================
+// EXPORT
+// =====================================================
 
 module.exports = router;

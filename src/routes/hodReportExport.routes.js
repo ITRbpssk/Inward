@@ -1,6 +1,7 @@
 const express =
     require("express");
 
+
 const router =
     express.Router();
 
@@ -11,6 +12,10 @@ const hodReportExportController =
 
 const authMiddleware =
     require("../middlewares/auth.middleware");
+
+
+const activityMiddleware =
+    require("../middlewares/activity.middleware");
 
 
 const roleMiddleware =
@@ -69,6 +74,8 @@ router.get(
         ROLES.HOD
     ]),
 
+    activityMiddleware,
+
     hodReportExportController
         .exportGeneral
 
@@ -101,6 +108,8 @@ router.get(
     roleMiddleware([
         ROLES.HOD
     ]),
+
+    activityMiddleware,
 
     hodReportExportController
         .exportSpecial
